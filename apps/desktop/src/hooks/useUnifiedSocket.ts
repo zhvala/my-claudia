@@ -20,6 +20,7 @@ import { usePermissionStore } from '../stores/permissionStore';
 import { DirectTransport } from './transport/DirectTransport';
 import { GatewayTransport } from './transport/GatewayTransport';
 import type { Transport } from './transport/BaseTransport';
+import { getApiKeyInfo } from '../services/api';
 
 const RECONNECT_INTERVAL = 3000;
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -43,10 +44,9 @@ export function useUnifiedSocket() {
     finalizeToolCallsToMessage,
     setSystemInfo,
     clearSystemInfo,
-    setMessages
   } = useChatStore();
 
-  const { selectedSessionId, setProjects, setSessions, setProviderCommands } = useProjectStore();
+  const { selectedSessionId } = useProjectStore();
 
   const {
     activeServerId,
@@ -54,7 +54,7 @@ export function useUnifiedSocket() {
     setConnectionStatus,
     setIsLocalConnection,
     updateLastConnected,
-    setServers
+    setApiKey
   } = useServerStore();
 
   const { setPendingRequest } = usePermissionStore();
@@ -96,6 +96,16 @@ export function useUnifiedSocket() {
             const server = getActiveServer();
             if (server) {
               updateLastConnected(server.id);
+              // Fetch and store API key for local connections (needed for REST API calls)
+              if (message.isLocalConnection && !server.apiKey) {
+                getApiKeyInfo().then(keyInfo => {
+                  if (keyInfo.fullKey) {
+                    setApiKey(server.id, keyInfo.fullKey);
+                  }
+                }).catch(err => {
+                  console.error('[Socket] Failed to fetch API key:', err);
+                });
+              }
             }
           } else {
             console.error('[Socket] Authentication failed:', message.error);
@@ -163,86 +173,6 @@ export function useUnifiedSocket() {
           });
           break;
 
-        case 'projects_list':
-          setProjects(message.projects);
-          break;
-
-        case 'sessions_list':
-          setSessions(message.sessions);
-          break;
-
-        case 'servers_list':
-          setServers(message.servers);
-          break;
-
-        case 'servers_created':
-        case 'servers_updated':
-        case 'servers_deleted':
-          // New router responses - server list will be broadcasted separately
-          console.log(`[Socket] Server operation completed:`, message.type);
-          break;
-
-        case 'server_operation_result':
-          // Legacy server operation result
-          if (!message.success && message.error) {
-            console.error(`Server ${message.operation} failed:`, message.error);
-          }
-          break;
-
-        case 'sessions_created':
-        case 'sessions_updated':
-        case 'sessions_deleted':
-          // New router responses
-          console.log(`[Socket] Session operation completed:`, message.type);
-          break;
-
-        case 'session_operation_result':
-          // Legacy session operation result
-          if (!message.success && message.error) {
-            console.error(`Session ${message.operation} failed:`, message.error);
-          }
-          break;
-
-        case 'projects_created':
-        case 'projects_updated':
-        case 'projects_deleted':
-          // New router responses
-          console.log(`[Socket] Project operation completed:`, message.type);
-          break;
-
-        case 'project_operation_result':
-          // Legacy project operation result
-          if (!message.success && message.error) {
-            console.error(`Project ${message.operation} failed:`, message.error);
-          }
-          break;
-
-        case 'providers_created':
-        case 'providers_updated':
-        case 'providers_deleted':
-          // New router responses
-          console.log(`[Socket] Provider operation completed:`, message.type);
-          break;
-
-        case 'provider_operation_result':
-          // Legacy provider operation result
-          if (!message.success && message.error) {
-            console.error(`Provider ${message.operation} failed:`, message.error);
-          }
-          break;
-
-        case 'session_messages':
-          setMessages(message.sessionId, message.messages, {
-            total: message.messages.length,
-            hasMore: message.hasMore,
-            oldestTimestamp: message.messages[0]?.createdAt
-          });
-          break;
-
-        case 'provider_commands':
-          setProviderCommands(message.providerId, message.commands);
-          break;
-
         case 'system_info':
           setSystemInfo(message.systemInfo);
           break;
@@ -265,17 +195,13 @@ export function useUnifiedSocket() {
       clearToolCalls,
       finalizeToolCallsToMessage,
       setPendingRequest,
-      setProjects,
-      setSessions,
-      setServers,
-      setMessages,
-      setProviderCommands,
       setSystemInfo,
       clearSystemInfo,
       setConnectionStatus,
       setIsLocalConnection,
       updateLastConnected,
-      getActiveServer
+      getActiveServer,
+      setApiKey
     ]
   );
 

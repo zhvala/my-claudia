@@ -886,18 +886,42 @@ export interface GatewayErrorMessage {
   backendId?: string;
 }
 
+// --- Gateway HTTP Proxy Protocol ---
+// Used when clients connect through Gateway and need to make REST API calls
+// to a backend that may be behind NAT.
+// Flow: Client → HTTP → Gateway → WS → Backend → WS → Gateway → HTTP → Client
+
+export interface GatewayHttpProxyRequest {
+  type: 'http_proxy_request';
+  requestId: string;
+  method: string;        // GET, POST, PUT, DELETE
+  path: string;          // /api/projects, /api/sessions/xxx/messages
+  headers: Record<string, string>;
+  body?: string;         // JSON string
+}
+
+export interface GatewayHttpProxyResponse {
+  type: 'http_proxy_response';
+  requestId: string;
+  statusCode: number;
+  headers: Record<string, string>;
+  body: string;          // JSON string
+}
+
 // Union types for Gateway messages
 export type GatewayToBackendMessage =
   | GatewayRegisterResultMessage
   | GatewayClientAuthMessage
   | GatewayForwardedMessage
   | GatewayClientConnectedMessage
-  | GatewayClientDisconnectedMessage;
+  | GatewayClientDisconnectedMessage
+  | GatewayHttpProxyRequest;
 
 export type BackendToGatewayMessage =
   | GatewayRegisterMessage
   | GatewayClientAuthResultMessage
-  | GatewayBackendResponseMessage;
+  | GatewayBackendResponseMessage
+  | GatewayHttpProxyResponse;
 
 export type ClientToGatewayMessage =
   | GatewayAuthMessage

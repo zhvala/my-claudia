@@ -1,54 +1,52 @@
 import { useCallback } from 'react';
-import { useConnection } from '../contexts/ConnectionContext';
+import { useServerStore } from '../stores/serverStore';
 import type { BackendServer } from '@my-claudia/shared';
+import * as api from '../services/api';
 
 /**
  * Hook for managing server configurations (add/update/delete)
- * Only available when connected to a local server
+ * Uses HTTP REST API instead of WebSocket messages
  */
 export function useServerManager() {
-  const { sendMessage } = useConnection();
+  const refreshServers = useCallback(async () => {
+    try {
+      const servers = await api.getServers();
+      useServerStore.getState().setServers(servers);
+    } catch (err) {
+      console.error('[ServerManager] Failed to refresh servers:', err);
+    }
+  }, []);
 
   const addServer = useCallback(
-    (server: Omit<BackendServer, 'id' | 'createdAt' | 'requiresAuth' | 'lastConnected'>) => {
-      sendMessage({
-        type: 'add_server',
-        server
-      });
+    async (server: Omit<BackendServer, 'id' | 'createdAt' | 'requiresAuth' | 'lastConnected'>) => {
+      await api.createServer(server as any);
+      await refreshServers();
     },
-    [sendMessage]
+    [refreshServers]
   );
 
   const updateServer = useCallback(
-    (id: string, updates: Partial<Omit<BackendServer, 'id' | 'createdAt'>>) => {
-      sendMessage({
-        type: 'update_server',
-        id,
-        server: updates
-      });
+    async (id: string, updates: Partial<Omit<BackendServer, 'id' | 'createdAt'>>) => {
+      await api.updateServer(id, updates);
+      await refreshServers();
     },
-    [sendMessage]
+    [refreshServers]
   );
 
   const deleteServer = useCallback(
-    (id: string) => {
-      sendMessage({
-        type: 'delete_server',
-        id
-      });
+    async (id: string) => {
+      await api.deleteServer(id);
+      await refreshServers();
     },
-    [sendMessage]
+    [refreshServers]
   );
 
   const setDefaultServer = useCallback(
-    (id: string) => {
-      sendMessage({
-        type: 'update_server',
-        id,
-        server: { isDefault: true }
-      });
+    async (id: string) => {
+      await api.updateServer(id, { isDefault: true });
+      await refreshServers();
     },
-    [sendMessage]
+    [refreshServers]
   );
 
   return {

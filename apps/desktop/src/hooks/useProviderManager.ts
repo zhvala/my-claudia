@@ -1,43 +1,31 @@
 import { useCallback } from 'react';
-import { useConnection } from '../contexts/ConnectionContext';
 import type { ProviderConfig } from '@my-claudia/shared';
+import * as api from '../services/api';
 
 /**
  * Hook for managing provider configurations (add/update/delete)
- * Only available when connected to a local server
+ * Uses HTTP REST API instead of WebSocket messages
  */
 export function useProviderManager() {
-  const { sendMessage } = useConnection();
-
   const addProvider = useCallback(
-    (provider: Omit<ProviderConfig, 'id' | 'createdAt' | 'updatedAt'>) => {
-      sendMessage({
-        type: 'add_provider',
-        provider
-      });
+    async (provider: Omit<ProviderConfig, 'id' | 'createdAt' | 'updatedAt'>) => {
+      await api.createProvider(provider);
     },
-    [sendMessage]
+    []
   );
 
   const updateProvider = useCallback(
-    (id: string, updates: Partial<Omit<ProviderConfig, 'id' | 'createdAt' | 'updatedAt'>>) => {
-      sendMessage({
-        type: 'update_provider',
-        id,
-        provider: updates
-      });
+    async (id: string, updates: Partial<Omit<ProviderConfig, 'id' | 'createdAt' | 'updatedAt'>>) => {
+      await api.updateProvider(id, updates);
     },
-    [sendMessage]
+    []
   );
 
   const deleteProvider = useCallback(
-    (id: string) => {
-      sendMessage({
-        type: 'delete_provider',
-        id
-      });
+    async (id: string) => {
+      await api.deleteProvider(id);
     },
-    [sendMessage]
+    []
   );
 
   return {

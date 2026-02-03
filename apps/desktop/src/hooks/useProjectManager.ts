@@ -1,43 +1,44 @@
 import { useCallback } from 'react';
-import { useConnection } from '../contexts/ConnectionContext';
+import { useProjectStore } from '../stores/projectStore';
 import type { Project } from '@my-claudia/shared';
+import * as api from '../services/api';
 
 /**
  * Hook for managing project configurations (add/update/delete)
- * Only available when connected to a local server
+ * Uses HTTP REST API instead of WebSocket messages
  */
 export function useProjectManager() {
-  const { sendMessage } = useConnection();
+  const refreshProjects = useCallback(async () => {
+    try {
+      const projects = await api.getProjects();
+      useProjectStore.getState().setProjects(projects);
+    } catch (err) {
+      console.error('[ProjectManager] Failed to refresh projects:', err);
+    }
+  }, []);
 
   const addProject = useCallback(
-    (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
-      sendMessage({
-        type: 'add_project',
-        project
-      });
+    async (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
+      await api.createProject(project);
+      await refreshProjects();
     },
-    [sendMessage]
+    [refreshProjects]
   );
 
   const updateProject = useCallback(
-    (id: string, updates: Partial<Omit<Project, 'id' | 'createdAt' | 'updatedAt'>>) => {
-      sendMessage({
-        type: 'update_project',
-        id,
-        project: updates
-      });
+    async (id: string, updates: Partial<Omit<Project, 'id' | 'createdAt' | 'updatedAt'>>) => {
+      await api.updateProject(id, updates);
+      await refreshProjects();
     },
-    [sendMessage]
+    [refreshProjects]
   );
 
   const deleteProject = useCallback(
-    (id: string) => {
-      sendMessage({
-        type: 'delete_project',
-        id
-      });
+    async (id: string) => {
+      await api.deleteProject(id);
+      await refreshProjects();
     },
-    [sendMessage]
+    [refreshProjects]
   );
 
   return {

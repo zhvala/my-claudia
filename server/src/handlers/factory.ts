@@ -43,6 +43,8 @@ export function createCrudHandlers<T, TCreate, TUpdate>(
   entityName: string,
   repository: Repository<T, TCreate, TUpdate>
 ): CrudHandlers {
+  const singularName = entityName.slice(0, -1); // 'servers' → 'server'
+
   // List all entities
   const list: MessageHandler = async (ctx: MessageContext) => {
     try {
@@ -65,7 +67,10 @@ export function createCrudHandlers<T, TCreate, TUpdate>(
   // Create new entity
   const create: MessageHandler = async (ctx: MessageContext) => {
     try {
-      const data = ctx.request.payload as TCreate;
+      const payload = ctx.request.payload as any;
+      // Old-format messages nest entity data under the singular key
+      // e.g. { type: 'add_server', server: { name, address, ... } }
+      const data = (payload[singularName] || payload) as TCreate;
 
       // Validate data exists
       if (!data || typeof data !== 'object') {
@@ -81,7 +86,7 @@ export function createCrudHandlers<T, TCreate, TUpdate>(
       return successResponse(
         ctx.request,
         `${entityName}_created`,
-        { [entityName.slice(0, -1)]: created }  // Remove 's' for singular
+        { [singularName]: created }
       );
     } catch (error) {
       if (error instanceof AppError) {
@@ -89,7 +94,7 @@ export function createCrudHandlers<T, TCreate, TUpdate>(
       }
       throw new AppError(
         'DATABASE_ERROR',
-        `Failed to create ${entityName.slice(0, -1)}`,
+        `Failed to create ${singularName}`,
         { error: error instanceof Error ? error.message : 'Unknown error' }
       );
     }
@@ -99,7 +104,10 @@ export function createCrudHandlers<T, TCreate, TUpdate>(
   const update: MessageHandler = async (ctx: MessageContext) => {
     try {
       const payload = ctx.request.payload as any;
-      const { id, ...data } = payload;
+      const id = payload.id;
+      // Old-format messages nest entity data under the singular key
+      // e.g. { type: 'update_server', id: '...', server: { name, ... } }
+      const data = (payload[singularName] || payload) as TUpdate;
 
       // Validate ID
       if (!id || typeof id !== 'string') {
@@ -115,7 +123,7 @@ export function createCrudHandlers<T, TCreate, TUpdate>(
       return successResponse(
         ctx.request,
         `${entityName}_updated`,
-        { [entityName.slice(0, -1)]: updated }
+        { [singularName]: updated }
       );
     } catch (error) {
       if (error instanceof AppError) {
@@ -123,7 +131,7 @@ export function createCrudHandlers<T, TCreate, TUpdate>(
       }
       throw new AppError(
         'DATABASE_ERROR',
-        `Failed to update ${entityName.slice(0, -1)}`,
+        `Failed to update ${singularName}`,
         { error: error instanceof Error ? error.message : 'Unknown error' }
       );
     }
@@ -149,7 +157,7 @@ export function createCrudHandlers<T, TCreate, TUpdate>(
       if (!deleted) {
         throw new AppError(
           'NOT_FOUND',
-          `${entityName.slice(0, -1)} not found`,
+          `${singularName} not found`,
           { id }
         );
       }
@@ -165,7 +173,7 @@ export function createCrudHandlers<T, TCreate, TUpdate>(
       }
       throw new AppError(
         'DATABASE_ERROR',
-        `Failed to delete ${entityName.slice(0, -1)}`,
+        `Failed to delete ${singularName}`,
         { error: error instanceof Error ? error.message : 'Unknown error' }
       );
     }

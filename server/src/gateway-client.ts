@@ -12,6 +12,8 @@ import type {
   GatewayForwardedMessage,
   GatewayClientConnectedMessage,
   GatewayClientDisconnectedMessage,
+  GatewayHttpProxyRequest,
+  GatewayHttpProxyResponse,
   ClientMessage,
   ServerMessage
 } from '@my-claudia/shared';
@@ -30,6 +32,7 @@ interface GatewayClientConfig {
   gatewayUrl: string;
   gatewaySecret: string;
   name?: string;
+  serverPort?: number;  // Local server port for HTTP proxy requests
   proxyUrl?: string;
   proxyAuth?: {
     username: string;
@@ -266,6 +269,52 @@ export class GatewayClient {
       case 'client_disconnected':
         this.handleClientDisconnected(message as GatewayClientDisconnectedMessage);
         break;
+
+      case 'http_proxy_request':
+        this.handleHttpProxyRequest(message as GatewayHttpProxyRequest);
+        break;
+    }
+  }
+
+  private async handleHttpProxyRequest(msg: GatewayHttpProxyRequest): Promise<void> {
+    const port = this.config.serverPort || 3100;
+    const url = `http://localhost:${port}${msg.path}`;
+
+    try {
+      console.log(`[Gateway] HTTP proxy: ${msg.method} ${msg.path}`);
+      const resp = await fetch(url, {
+        method: msg.method,
+        headers: msg.headers,
+        body: !['GET', 'HEAD'].includes(msg.method) ? msg.body : undefined
+      });
+
+      const responseHeaders: Record<string, string> = {};
+      resp.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+
+      const response: GatewayHttpProxyResponse = {
+        type: 'http_proxy_response',
+        requestId: msg.requestId,
+        statusCode: resp.status,
+        headers: responseHeaders,
+        body: await resp.text()
+      };
+
+      this.ws?.send(JSON.stringify(response));
+    } catch (error) {
+      console.error('[Gateway] HTTP proxy error:', error);
+      const response: GatewayHttpProxyResponse = {
+        type: 'http_proxy_response',
+        requestId: msg.requestId,
+        statusCode: 502,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          error: { code: 'PROXY_ERROR', message: 'Failed to reach local server' }
+        })
+      };
+      this.ws?.send(JSON.stringify(response));
     }
   }
 

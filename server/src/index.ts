@@ -74,7 +74,8 @@ async function connectToGateway(config: GatewayConfig): Promise<void> {
   const gatewayClientConfig: any = {
     gatewayUrl: config.gatewayUrl,
     gatewaySecret: config.gatewaySecret,
-    name: config.backendName || `Backend on ${os.hostname()}`
+    name: config.backendName || `Backend on ${os.hostname()}`,
+    serverPort: PORT
   };
 
   // Add proxy configuration if provided
@@ -154,11 +155,9 @@ async function main() {
     serverContext = await createServer();
     const { server, handleMessage, connectGateway, disconnectGateway } = serverContext;
 
-    // Pass gateway connection handlers to server context
-    // (These are called by the API routes)
-    // @ts-ignore - Modify the returned functions to use our gateway management
-    serverContext.connectGateway = connectToGateway;
-    serverContext.disconnectGateway = disconnectFromGateway;
+    // Set gateway connector/disconnector implementations
+    serverContext.setGatewayConnector(connectToGateway);
+    serverContext.setGatewayDisconnector(disconnectFromGateway);
 
     server.listen(PORT, HOST, async () => {
       console.log(`🚀 My Claudia Server running at http://${HOST}:${PORT}`);

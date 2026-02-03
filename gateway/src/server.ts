@@ -13,6 +13,8 @@ import type {
   GatewayToBackendMessage,
   GatewayToClientMessage,
   BackendToGatewayMessage,
+  GatewayHttpProxyRequest,
+  GatewayHttpProxyResponse,
   ClientMessage,
   ServerMessage
 } from '@my-claudia/shared';
@@ -47,6 +49,12 @@ export function createGatewayServer(config: GatewayConfig): Server {
   const backends = new Map<string, ConnectedBackend>();  // backendId -> backend
   const clients = new Map<string, ConnectedClient>();    // clientId -> client
   const backendConnections = new Map<WebSocket, ConnectedBackend>();  // ws -> backend (for lookup)
+
+  // Pending HTTP proxy requests: requestId -> { resolve, timeout }
+  const pendingHttpRequests = new Map<string, {
+    resolve: (response: GatewayHttpProxyResponse) => void;
+    timeout: NodeJS.Timeout;
+  }>();
 
   // Create Express app
   const app = express();
@@ -133,6 +141,123 @@ export function createGatewayServer(config: GatewayConfig): Server {
         success: false,
         error: { code: 'RETRIEVAL_ERROR', message: 'Failed to retrieve file' }
       });
+    }
+  });
+
+  // HTTP Proxy endpoint: forwards REST API requests to backends via WS
+  // Auth format: Bearer gatewaySecret:apiKey
+  app.all('/api/proxy/:backendId/*', async (req: Request, res: Response) => {
+    try {
+      const { backendId } = req.params;
+
+      // Parse authorization header: Bearer gatewaySecret:apiKey
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authorization required' }
+        });
+        return;
+      }
+
+      const token = authHeader.slice(7);
+      const colonIndex = token.indexOf(':');
+      if (colonIndex === -1) {
+        res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Invalid authorization format. Expected: Bearer gatewaySecret:apiKey' }
+        });
+        return;
+      }
+
+      const gatewaySecret = token.slice(0, colonIndex);
+      const apiKey = token.slice(colonIndex + 1);
+
+      // Validate gateway secret
+      if (gatewaySecret !== config.gatewaySecret) {
+        res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Invalid gateway secret' }
+        });
+        return;
+      }
+
+      // Find backend
+      const backend = backends.get(backendId);
+      if (!backend) {
+        res.status(502).json({
+          success: false,
+          error: { code: 'BACKEND_OFFLINE', message: 'Backend not found or offline' }
+        });
+        return;
+      }
+
+      // Extract the path after /api/proxy/:backendId
+      // req.params[0] contains the wildcard match (everything after *)
+      const targetPath = '/' + (req.params as any)[0];
+
+      // Construct proxy request
+      const requestId = uuidv4();
+      const proxyRequest: GatewayHttpProxyRequest = {
+        type: 'http_proxy_request',
+        requestId,
+        method: req.method,
+        path: targetPath,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body)
+      };
+
+      // Send request to backend via WS and wait for response
+      const responsePromise = new Promise<GatewayHttpProxyResponse>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          pendingHttpRequests.delete(requestId);
+          reject(new Error('Backend request timed out'));
+        }, 30000);
+
+        pendingHttpRequests.set(requestId, { resolve, timeout });
+      });
+
+      // Forward to backend
+      if (backend.ws.readyState === WebSocket.OPEN) {
+        backend.ws.send(JSON.stringify(proxyRequest));
+      } else {
+        res.status(502).json({
+          success: false,
+          error: { code: 'BACKEND_OFFLINE', message: 'Backend connection lost' }
+        });
+        pendingHttpRequests.delete(requestId);
+        return;
+      }
+
+      // Wait for response
+      const proxyResponse = await responsePromise;
+
+      // Forward response to client
+      res.status(proxyResponse.statusCode);
+      for (const [key, value] of Object.entries(proxyResponse.headers)) {
+        // Skip hop-by-hop headers
+        if (!['transfer-encoding', 'connection'].includes(key.toLowerCase())) {
+          res.setHeader(key, value);
+        }
+      }
+      res.send(proxyResponse.body);
+
+    } catch (error) {
+      if ((error as Error).message === 'Backend request timed out') {
+        res.status(504).json({
+          success: false,
+          error: { code: 'TIMEOUT', message: 'Backend request timed out' }
+        });
+      } else {
+        console.error('[Gateway] HTTP proxy error:', error);
+        res.status(500).json({
+          success: false,
+          error: { code: 'PROXY_ERROR', message: 'Failed to proxy request' }
+        });
+      }
     }
   });
 
@@ -322,6 +447,18 @@ export function createGatewayServer(config: GatewayConfig): Server {
             backendId,
             message: message.message
           });
+        }
+        break;
+      }
+
+      case 'http_proxy_response': {
+        // Resolve pending HTTP proxy request
+        const proxyMsg = message as GatewayHttpProxyResponse;
+        const pending = pendingHttpRequests.get(proxyMsg.requestId);
+        if (pending) {
+          clearTimeout(pending.timeout);
+          pendingHttpRequests.delete(proxyMsg.requestId);
+          pending.resolve(proxyMsg);
         }
         break;
       }

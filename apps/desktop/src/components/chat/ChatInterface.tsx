@@ -53,12 +53,11 @@ export function ChatInterface({ sessionId }: ChatInterfaceProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' });
   }, []);
 
-  // Load messages with pagination
+  // Load messages with pagination (all via HTTP)
   const loadMessages = useCallback(async (before?: number) => {
     try {
       if (before) {
-        // Load more (older messages) - use HTTP for now
-        // TODO: Migrate pagination to WebSocket in Phase 2
+        // Load more (older messages)
         setLoadingMore(sessionId, true);
 
         const result = await api.getSessionMessages(sessionId, {
@@ -68,7 +67,7 @@ export function ChatInterface({ sessionId }: ChatInterfaceProps) {
 
         prependMessages(sessionId, result.messages, result.pagination);
       } else {
-        // Initial load - use WebSocket
+        // Initial load via HTTP
         if (!isConnected) {
           console.warn('Cannot load messages: not connected');
           setMessages(sessionId, [], { total: 0, hasMore: false });
@@ -76,12 +75,11 @@ export function ChatInterface({ sessionId }: ChatInterfaceProps) {
           return;
         }
 
-        wsSendMessage({
-          type: 'get_session_messages',
-          sessionId,
+        const result = await api.getSessionMessages(sessionId, {
           limit: MESSAGES_PER_PAGE
         });
 
+        setMessages(sessionId, result.messages, result.pagination);
         setInitialLoadDone(true);
         // Scroll to bottom on initial load - use instant to avoid visible scroll animation
         setTimeout(() => scrollToBottom(true), 0);
@@ -95,7 +93,7 @@ export function ChatInterface({ sessionId }: ChatInterfaceProps) {
         setInitialLoadDone(true);
       }
     }
-  }, [sessionId, setLoadingMore, prependMessages, setMessages, scrollToBottom, isConnected, wsSendMessage]);
+  }, [sessionId, setLoadingMore, prependMessages, setMessages, scrollToBottom, isConnected]);
 
   // Load initial messages when session changes
   useEffect(() => {
@@ -134,7 +132,7 @@ export function ChatInterface({ sessionId }: ChatInterfaceProps) {
     }
   }, [loadMoreMessages, sessionPagination]);
 
-  // Fetch commands when provider or project changes
+  // Fetch commands when provider or project changes (via HTTP)
   useEffect(() => {
     const providerId = currentSession?.providerId || currentProject?.providerId;
     const projectRoot = currentProject?.rootPath;
@@ -143,13 +141,15 @@ export function ChatInterface({ sessionId }: ChatInterfaceProps) {
       return;
     }
 
-    // Request commands via WebSocket
-    wsSendMessage({
-      type: 'get_provider_commands',
-      providerId,
-      projectRoot
-    });
-  }, [currentSession?.providerId, currentProject?.providerId, currentProject?.rootPath, isConnected, wsSendMessage]);
+    // Request commands via HTTP
+    api.getProviderCommands(providerId, projectRoot || undefined)
+      .then(commands => {
+        useProjectStore.getState().setProviderCommands(providerId, commands);
+      })
+      .catch(err => {
+        console.error('Failed to load provider commands:', err);
+      });
+  }, [currentSession?.providerId, currentProject?.providerId, currentProject?.rootPath, isConnected]);
 
   // Get commands for current provider
   const providerId = currentSession?.providerId || currentProject?.providerId;

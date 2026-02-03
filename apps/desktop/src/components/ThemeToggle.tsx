@@ -55,7 +55,7 @@ export function ThemeToggle() {
 
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute bottom-full right-0 mb-1 w-36 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+        <div className="absolute top-full right-0 mt-1 w-36 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
           {THEME_OPTIONS.map((option) => (
             <button
               key={option.value}

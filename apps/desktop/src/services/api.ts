@@ -3,6 +3,7 @@ import type {
   Session,
   Message,
   ProviderConfig,
+  BackendServer,
   SlashCommand,
   ApiResponse,
   DirectoryListingResponse,
@@ -28,6 +29,16 @@ function getBaseUrl(): string {
   if (!server) {
     throw new Error('No server configured');
   }
+
+  // Gateway mode: route through Gateway's HTTP proxy endpoint
+  if (server.connectionMode === 'gateway' && server.gatewayUrl && server.backendId) {
+    const gwAddr = server.gatewayUrl.includes('://')
+      ? server.gatewayUrl.replace(/^ws/, 'http')
+      : `http://${server.gatewayUrl}`;
+    return `${gwAddr}/api/proxy/${server.backendId}`;
+  }
+
+  // Direct mode: connect directly to backend
   const address = server.address.includes('://')
     ? server.address
     : `http://${server.address}`;
@@ -37,14 +48,18 @@ function getBaseUrl(): string {
 // Get authentication header for the active server
 function getAuthHeaders(): HeadersInit {
   const server = useServerStore.getState().getActiveServer();
-  // Always send Authorization header if API key is present
-  // The server requires authentication for all connections (including localhost)
   if (!server?.apiKey) {
     return {};
   }
 
-  // Combine clientId and apiKey for gateway routing if clientId is set
-  // Format: "clientId:apiKey" or just "apiKey" if no clientId
+  // Gateway mode: use gatewaySecret:apiKey compound auth
+  if (server.connectionMode === 'gateway' && server.gatewaySecret) {
+    return {
+      'Authorization': `Bearer ${server.gatewaySecret}:${server.apiKey}`
+    };
+  }
+
+  // Direct mode: clientId:apiKey or just apiKey
   const token = server.clientId
     ? `${server.clientId}:${server.apiKey}`
     : server.apiKey;
@@ -500,4 +515,49 @@ export async function disconnectServerFromGateway(): Promise<{ message: string }
     throw new Error(result.error?.message || 'Failed to disconnect from gateway');
   }
   return result.data;
+}
+
+// ============================================
+// Servers API
+// ============================================
+
+export async function getServers(): Promise<BackendServer[]> {
+  const result = await fetchApi<BackendServer[]>('/api/servers');
+  if (!result.success || !result.data) {
+    throw new Error(result.error?.message || 'Failed to fetch servers');
+  }
+  return result.data;
+}
+
+export async function createServer(data: Omit<BackendServer, 'id' | 'createdAt' | 'lastConnected'>): Promise<BackendServer> {
+  const result = await fetchApi<BackendServer>('/api/servers', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+  if (!result.success || !result.data) {
+    throw new Error(result.error?.message || 'Failed to create server');
+  }
+  return result.data;
+}
+
+export async function updateServer(
+  id: string,
+  data: Partial<Omit<BackendServer, 'id' | 'createdAt'>>
+): Promise<void> {
+  const result = await fetchApi<void>(`/api/servers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to update server');
+  }
+}
+
+export async function deleteServer(id: string): Promise<void> {
+  const result = await fetchApi<void>(`/api/servers/${id}`, {
+    method: 'DELETE'
+  });
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to delete server');
+  }
 }
