@@ -19,6 +19,11 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:workflows": "playwright test e2e/tests/user-workflows.spec.ts",
     "test:e2e:performance": "playwright test e2e/tests/performance.spec.ts",
+    "test:e2e:local": "TEST_MODES=local playwright test",
+    "test:e2e:remote": "TEST_MODES=remote playwright test",
+    "test:e2e:gateway": "TEST_MODES=gateway playwright test",
+    "test:e2e:modes": "playwright test e2e/tests/connection/",
+    "test:e2e:shared": "playwright test e2e/tests/shared/",
     "fixtures:generate": "node e2e/fixtures/performance-data/generate-fixtures.js",
     "test:desktop": "pnpm --filter @my-claudia/desktop run test",
     "test:server": "pnpm --filter @my-claudia/server run test"
