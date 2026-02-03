@@ -1,0 +1,5 @@
+{"type":"summary","summary":"Test Session 2 with Tool Calls","leafUuid":"def456"}
+{"type":"user","message":{"role":"user","content":"Read the file test.txt"},"uuid":"msg-6","timestamp":"2026-01-27T11:00:00.000Z","sessionId":"test-session-456"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"tool-1","name":"read_file","input":{"path":"test.txt"}}],"usage":{"input_tokens":20,"output_tokens":5}},"uuid":"msg-7","timestamp":"2026-01-27T11:00:05.000Z"}
+{"type":"user","message":{"role":"user","content":"[tool result]"},"uuid":"msg-8","timestamp":"2026-01-27T11:00:06.000Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"The file contains: Hello World"}],"usage":{"input_tokens":30,"output_tokens":8}},"uuid":"msg-9","timestamp":"2026-01-27T11:00:10.000Z"}

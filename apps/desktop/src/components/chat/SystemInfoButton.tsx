@@ -1,0 +1,173 @@
+import { useState, useRef, useEffect } from 'react';
+import type { SystemInfo } from '@my-claudia/shared';
+
+interface SystemInfoButtonProps {
+  systemInfo: SystemInfo | null;
+}
+
+export function SystemInfoButton({ systemInfo }: SystemInfoButtonProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Close panel when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        panelRef.current &&
+        buttonRef.current &&
+        !panelRef.current.contains(event.target as Node) &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setIsExpanded(false);
+      }
+    }
+
+    if (isExpanded) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isExpanded]);
+
+  const hasInfo = systemInfo && (
+    systemInfo.model ||
+    systemInfo.claudeCodeVersion ||
+    systemInfo.cwd ||
+    systemInfo.permissionMode ||
+    systemInfo.apiKeySource ||
+    (systemInfo.tools && systemInfo.tools.length > 0) ||
+    (systemInfo.mcpServers && systemInfo.mcpServers.length > 0) ||
+    (systemInfo.agents && systemInfo.agents.length > 0)
+  );
+
+  // Don't show the button if no system info available
+  // System info will be populated after the first message is sent
+  if (!hasInfo) {
+    return null;
+  }
+
+  return (
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={`
+          flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg transition-all
+          ${isExpanded
+            ? 'bg-card text-foreground shadow-sm'
+            : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+          }
+        `}
+        title="View system info"
+      >
+        <span>ℹ️</span>
+        <span className="hidden sm:inline">Info</span>
+      </button>
+
+      {/* Expandable panel */}
+      {isExpanded && (
+        <div
+          ref={panelRef}
+          className="absolute bottom-full right-0 mb-2 w-80 max-w-[90vw] bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden"
+        >
+          <div className="p-3 border-b border-border flex items-center justify-between">
+            <span className="text-sm font-medium text-card-foreground">System Info</span>
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="text-muted-foreground hover:text-foreground text-lg leading-none"
+            >
+              ×
+            </button>
+          </div>
+          <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
+            {/* Primary info */}
+            <div className="flex flex-wrap gap-2">
+              {systemInfo?.model && (
+                <InfoBadge icon="🤖" label="Model" value={systemInfo.model} />
+              )}
+              {systemInfo?.claudeCodeVersion && (
+                <InfoBadge icon="📦" label="Version" value={systemInfo.claudeCodeVersion} />
+              )}
+              {systemInfo?.permissionMode && (
+                <InfoBadge icon="🛡️" label="Permission" value={systemInfo.permissionMode} />
+              )}
+              {systemInfo?.apiKeySource && (
+                <InfoBadge icon="🔑" label="API Key" value={systemInfo.apiKeySource} />
+              )}
+            </div>
+
+            {/* Working directory */}
+            {systemInfo?.cwd && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>📁</span>
+                <span className="font-mono truncate" title={systemInfo.cwd}>
+                  {systemInfo.cwd}
+                </span>
+              </div>
+            )}
+
+            {/* Tools */}
+            {systemInfo?.tools && systemInfo.tools.length > 0 && (
+              <InfoList icon="🔧" label="Tools" items={systemInfo.tools} />
+            )}
+
+            {/* MCP Servers */}
+            {systemInfo?.mcpServers && systemInfo.mcpServers.length > 0 && (
+              <InfoList icon="🖥️" label="MCP Servers" items={systemInfo.mcpServers} />
+            )}
+
+            {/* Agents */}
+            {systemInfo?.agents && systemInfo.agents.length > 0 && (
+              <InfoList icon="👥" label="Agents" items={systemInfo.agents} />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoBadge({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-1 bg-muted px-2 py-1 rounded text-xs">
+      <span>{icon}</span>
+      <span className="text-muted-foreground">{label}:</span>
+      <span className="text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function InfoList({ icon, label, items }: { icon: string; label: string; items: string[] }) {
+  const [showAll, setShowAll] = useState(false);
+  const maxVisible = 5;
+  const displayItems = showAll ? items : items.slice(0, maxVisible);
+  const hasMore = items.length > maxVisible;
+
+  return (
+    <div className="text-xs">
+      <div className="flex items-center gap-2 text-muted-foreground mb-1">
+        <span>{icon}</span>
+        <span>{label}</span>
+        <span className="text-muted-foreground/70">({items.length})</span>
+      </div>
+      <div className="flex flex-wrap gap-1 ml-5">
+        {displayItems.map((item, index) => (
+          <span
+            key={index}
+            className="bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded text-[10px] font-mono"
+          >
+            {item}
+          </span>
+        ))}
+        {hasMore && (
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-primary hover:underline text-[10px]"
+          >
+            {showAll ? 'show less' : `+${items.length - maxVisible} more`}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

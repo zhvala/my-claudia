@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "sessionId": "test-session-123",
+      "fullPath": "/mock/path/test-session-123.jsonl",
+      "fileMtime": 1738000000000,
+      "firstPrompt": "Hello, this is a test session",
+      "summary": "Test Session 1",
+      "messageCount": 5
+    },
+    {
+      "sessionId": "test-session-456",
+      "fullPath": "/mock/path/test-session-456.jsonl",
+      "fileMtime": 1738100000000,
+      "summary": "Test Session 2 with Tool Calls",
+      "messageCount": 8
+    }
+  ]
+}

@@ -1,0 +1,254 @@
+import { describe, it, expect } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ToolCallItem, ToolCallList } from '../ToolCallItem';
+import type { ToolCallState } from '../../../stores/chatStore';
+
+describe('ToolCallItem', () => {
+  const createToolCall = (overrides: Partial<ToolCallState> = {}): ToolCallState => ({
+    id: 'tool-1',
+    toolName: 'Read',
+    toolInput: { file_path: '/project/file.ts' },
+    status: 'completed',
+    result: 'File content here',
+    isError: false,
+    ...overrides,
+  });
+
+  describe('display', () => {
+    it('renders tool name and icon', () => {
+      const toolCall = createToolCall({ toolName: 'Read' });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      expect(screen.getByText('Read')).toBeInTheDocument();
+    });
+
+    it('shows running spinner when status is running', () => {
+      const toolCall = createToolCall({ status: 'running' });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      expect(screen.getByText('⟳')).toBeInTheDocument();
+    });
+
+    it('shows success checkmark when completed without error', () => {
+      const toolCall = createToolCall({ status: 'completed', isError: false });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      expect(screen.getByText('✓')).toBeInTheDocument();
+    });
+
+    it('shows error X when completed with error', () => {
+      const toolCall = createToolCall({ status: 'completed', isError: true });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      expect(screen.getByText('✗')).toBeInTheDocument();
+    });
+
+    it('displays formatted input summary', () => {
+      const toolCall = createToolCall({
+        toolName: 'Bash',
+        toolInput: { command: 'npm test' },
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      expect(screen.getByText('npm test')).toBeInTheDocument();
+    });
+
+    it('expands to show full input JSON when clicked', () => {
+      const toolCall = createToolCall({
+        toolInput: { file_path: '/project/test.ts', encoding: 'utf-8' },
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      // Click to expand
+      fireEvent.click(screen.getByRole('button'));
+
+      expect(screen.getByText('Input:')).toBeInTheDocument();
+      expect(screen.getByText(/"file_path":/)).toBeInTheDocument();
+    });
+
+    it('shows result when expanded and completed', () => {
+      const toolCall = createToolCall({
+        status: 'completed',
+        result: 'Test result content',
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      // Click to expand
+      fireEvent.click(screen.getByRole('button'));
+
+      expect(screen.getByText('Result:')).toBeInTheDocument();
+      expect(screen.getByText('Test result content')).toBeInTheDocument();
+    });
+
+    it('does not show result when still running', () => {
+      const toolCall = createToolCall({
+        status: 'running',
+        result: undefined,
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      // Click to expand
+      fireEvent.click(screen.getByRole('button'));
+
+      expect(screen.queryByText('Result:')).not.toBeInTheDocument();
+    });
+
+    it('shows Error label when isError is true', () => {
+      const toolCall = createToolCall({
+        status: 'completed',
+        isError: true,
+        result: 'Command failed',
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      fireEvent.click(screen.getByRole('button'));
+
+      expect(screen.getByText('Error:')).toBeInTheDocument();
+    });
+  });
+
+  describe('formatToolInput', () => {
+    it('formats Read tool with file path', () => {
+      const toolCall = createToolCall({
+        toolName: 'Read',
+        toolInput: { file_path: '/project/src/index.ts' },
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      expect(screen.getByText('/project/src/index.ts')).toBeInTheDocument();
+    });
+
+    it('formats Bash tool with command', () => {
+      const toolCall = createToolCall({
+        toolName: 'Bash',
+        toolInput: { command: 'git status' },
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      expect(screen.getByText('git status')).toBeInTheDocument();
+    });
+
+    it('formats Grep tool with pattern and path', () => {
+      const toolCall = createToolCall({
+        toolName: 'Grep',
+        toolInput: { pattern: 'TODO', path: '/project/src' },
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      expect(screen.getByText(/TODO.*in \/project\/src/)).toBeInTheDocument();
+    });
+
+    it('formats Glob tool with pattern', () => {
+      const toolCall = createToolCall({
+        toolName: 'Glob',
+        toolInput: { pattern: '**/*.ts' },
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      expect(screen.getByText(/\*\*\/\*\.ts/)).toBeInTheDocument();
+    });
+
+    it('formats WebFetch with URL', () => {
+      const toolCall = createToolCall({
+        toolName: 'WebFetch',
+        toolInput: { url: 'https://example.com/api' },
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      expect(screen.getByText('https://example.com/api')).toBeInTheDocument();
+    });
+
+    it('falls back to JSON stringify for unknown tools', () => {
+      const toolCall = createToolCall({
+        toolName: 'UnknownTool',
+        toolInput: { foo: 'bar' },
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      // Should contain the JSON
+      expect(screen.getByText(/"foo"/)).toBeInTheDocument();
+    });
+  });
+
+  describe('formatToolResult truncation', () => {
+    it('truncates long string results', () => {
+      const longResult = 'A'.repeat(600);
+      const toolCall = createToolCall({
+        status: 'completed',
+        result: longResult,
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      fireEvent.click(screen.getByRole('button'));
+
+      expect(screen.getByText(/\.\.\. \(truncated\)/)).toBeInTheDocument();
+    });
+
+    it('truncates long JSON results', () => {
+      const longResult = { data: 'A'.repeat(600) };
+      const toolCall = createToolCall({
+        status: 'completed',
+        result: longResult,
+      });
+      render(<ToolCallItem toolCall={toolCall} />);
+
+      fireEvent.click(screen.getByRole('button'));
+
+      expect(screen.getByText(/\.\.\. \(truncated\)/)).toBeInTheDocument();
+    });
+  });
+
+  describe('getToolIcon', () => {
+    it('returns correct icon for known tools', () => {
+      const readToolCall = createToolCall({ toolName: 'Read' });
+      render(<ToolCallItem toolCall={readToolCall} />);
+      expect(screen.getByText('Read')).toBeInTheDocument();
+    });
+
+    it('returns default icon for unknown tools', () => {
+      const unknownToolCall = createToolCall({ toolName: 'CustomTool' });
+      render(<ToolCallItem toolCall={unknownToolCall} />);
+      expect(screen.getByText('CustomTool')).toBeInTheDocument();
+    });
+  });
+});
+
+describe('ToolCallList', () => {
+  const createToolCall = (id: string): ToolCallState => ({
+    id,
+    toolName: 'Read',
+    toolInput: { file_path: '/test.ts' },
+    status: 'completed',
+    result: 'content',
+    isError: false,
+  });
+
+  it('renders nothing when empty', () => {
+    const { container } = render(<ToolCallList toolCalls={[]} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders all tool calls', () => {
+    const toolCalls = [
+      createToolCall('tc-1'),
+      createToolCall('tc-2'),
+      createToolCall('tc-3'),
+    ];
+    render(<ToolCallList toolCalls={toolCalls} />);
+
+    // Should have 3 buttons (one for each tool call)
+    expect(screen.getAllByRole('button')).toHaveLength(3);
+  });
+
+  it('uses tool call id as key', () => {
+    const toolCalls = [createToolCall('unique-id-1')];
+    const { rerender } = render(<ToolCallList toolCalls={toolCalls} />);
+
+    // Re-render with different tool call
+    const newToolCalls = [createToolCall('unique-id-2')];
+    rerender(<ToolCallList toolCalls={newToolCalls} />);
+
+    // Component should update without errors
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+  });
+});

@@ -1,0 +1,6 @@
+{"type":"summary","summary":"Test Session 1","leafUuid":"abc123"}
+{"type":"user","message":{"role":"user","content":"Hello"},"uuid":"msg-1","timestamp":"2026-01-27T10:00:00.000Z","sessionId":"test-session-123","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Hi there! How can I help you today?"}],"usage":{"input_tokens":10,"output_tokens":12}},"uuid":"msg-2","timestamp":"2026-01-27T10:00:05.000Z"}
+{"type":"user","message":{"role":"user","content":"Can you help me write a function?"},"uuid":"msg-3","timestamp":"2026-01-27T10:00:10.000Z","sessionId":"test-session-123"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","thinking":"User wants help writing a function. I should ask what kind of function."},{"type":"text","text":"Of course! What kind of function would you like me to help you write?"}],"usage":{"input_tokens":25,"output_tokens":18}},"uuid":"msg-4","timestamp":"2026-01-27T10:00:15.000Z"}
+{"type":"user","message":{"role":"user","content":"A function to calculate factorial"},"uuid":"msg-5","timestamp":"2026-01-27T10:00:20.000Z"}

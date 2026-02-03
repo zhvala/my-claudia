@@ -1,0 +1,805 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "sessionId": "session-001",
+      "fullPath": "/mock/path/session-001.jsonl",
+      "fileMtime": 1767225600000,
+      "firstPrompt": "Message 1 in session 1",
+      "summary": "Test Session 1",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-002",
+      "fullPath": "/mock/path/session-002.jsonl",
+      "fileMtime": 1767229200000,
+      "firstPrompt": "Message 1 in session 2",
+      "summary": "Test Session 2",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-003",
+      "fullPath": "/mock/path/session-003.jsonl",
+      "fileMtime": 1767232800000,
+      "firstPrompt": "Message 1 in session 3",
+      "summary": "Test Session 3",
+      "messageCount": 14
+    },
+    {
+      "sessionId": "session-004",
+      "fullPath": "/mock/path/session-004.jsonl",
+      "fileMtime": 1767236400000,
+      "firstPrompt": "Message 1 in session 4",
+      "summary": "Test Session 4",
+      "messageCount": 14
+    },
+    {
+      "sessionId": "session-005",
+      "fullPath": "/mock/path/session-005.jsonl",
+      "fileMtime": 1767240000000,
+      "firstPrompt": "Message 1 in session 5",
+      "summary": "Test Session 5",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-006",
+      "fullPath": "/mock/path/session-006.jsonl",
+      "fileMtime": 1767243600000,
+      "firstPrompt": "Message 1 in session 6",
+      "summary": "Test Session 6",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-007",
+      "fullPath": "/mock/path/session-007.jsonl",
+      "fileMtime": 1767247200000,
+      "firstPrompt": "Message 1 in session 7",
+      "summary": "Test Session 7",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-008",
+      "fullPath": "/mock/path/session-008.jsonl",
+      "fileMtime": 1767250800000,
+      "firstPrompt": "Message 1 in session 8",
+      "summary": "Test Session 8",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-009",
+      "fullPath": "/mock/path/session-009.jsonl",
+      "fileMtime": 1767254400000,
+      "firstPrompt": "Message 1 in session 9",
+      "summary": "Test Session 9",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-010",
+      "fullPath": "/mock/path/session-010.jsonl",
+      "fileMtime": 1767258000000,
+      "firstPrompt": "Message 1 in session 10",
+      "summary": "Test Session 10",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-011",
+      "fullPath": "/mock/path/session-011.jsonl",
+      "fileMtime": 1767261600000,
+      "firstPrompt": "Message 1 in session 11",
+      "summary": "Test Session 11",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-012",
+      "fullPath": "/mock/path/session-012.jsonl",
+      "fileMtime": 1767265200000,
+      "firstPrompt": "Message 1 in session 12",
+      "summary": "Test Session 12",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-013",
+      "fullPath": "/mock/path/session-013.jsonl",
+      "fileMtime": 1767268800000,
+      "firstPrompt": "Message 1 in session 13",
+      "summary": "Test Session 13",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-014",
+      "fullPath": "/mock/path/session-014.jsonl",
+      "fileMtime": 1767272400000,
+      "firstPrompt": "Message 1 in session 14",
+      "summary": "Test Session 14",
+      "messageCount": 14
+    },
+    {
+      "sessionId": "session-015",
+      "fullPath": "/mock/path/session-015.jsonl",
+      "fileMtime": 1767276000000,
+      "firstPrompt": "Message 1 in session 15",
+      "summary": "Test Session 15",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-016",
+      "fullPath": "/mock/path/session-016.jsonl",
+      "fileMtime": 1767279600000,
+      "firstPrompt": "Message 1 in session 16",
+      "summary": "Test Session 16",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-017",
+      "fullPath": "/mock/path/session-017.jsonl",
+      "fileMtime": 1767283200000,
+      "firstPrompt": "Message 1 in session 17",
+      "summary": "Test Session 17",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-018",
+      "fullPath": "/mock/path/session-018.jsonl",
+      "fileMtime": 1767286800000,
+      "firstPrompt": "Message 1 in session 18",
+      "summary": "Test Session 18",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-019",
+      "fullPath": "/mock/path/session-019.jsonl",
+      "fileMtime": 1767290400000,
+      "firstPrompt": "Message 1 in session 19",
+      "summary": "Test Session 19",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-020",
+      "fullPath": "/mock/path/session-020.jsonl",
+      "fileMtime": 1767294000000,
+      "firstPrompt": "Message 1 in session 20",
+      "summary": "Test Session 20",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-021",
+      "fullPath": "/mock/path/session-021.jsonl",
+      "fileMtime": 1767297600000,
+      "firstPrompt": "Message 1 in session 21",
+      "summary": "Test Session 21",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-022",
+      "fullPath": "/mock/path/session-022.jsonl",
+      "fileMtime": 1767301200000,
+      "firstPrompt": "Message 1 in session 22",
+      "summary": "Test Session 22",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-023",
+      "fullPath": "/mock/path/session-023.jsonl",
+      "fileMtime": 1767304800000,
+      "firstPrompt": "Message 1 in session 23",
+      "summary": "Test Session 23",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-024",
+      "fullPath": "/mock/path/session-024.jsonl",
+      "fileMtime": 1767308400000,
+      "firstPrompt": "Message 1 in session 24",
+      "summary": "Test Session 24",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-025",
+      "fullPath": "/mock/path/session-025.jsonl",
+      "fileMtime": 1767312000000,
+      "firstPrompt": "Message 1 in session 25",
+      "summary": "Test Session 25",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-026",
+      "fullPath": "/mock/path/session-026.jsonl",
+      "fileMtime": 1767315600000,
+      "firstPrompt": "Message 1 in session 26",
+      "summary": "Test Session 26",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-027",
+      "fullPath": "/mock/path/session-027.jsonl",
+      "fileMtime": 1767319200000,
+      "firstPrompt": "Message 1 in session 27",
+      "summary": "Test Session 27",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-028",
+      "fullPath": "/mock/path/session-028.jsonl",
+      "fileMtime": 1767322800000,
+      "firstPrompt": "Message 1 in session 28",
+      "summary": "Test Session 28",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-029",
+      "fullPath": "/mock/path/session-029.jsonl",
+      "fileMtime": 1767326400000,
+      "firstPrompt": "Message 1 in session 29",
+      "summary": "Test Session 29",
+      "messageCount": 14
+    },
+    {
+      "sessionId": "session-030",
+      "fullPath": "/mock/path/session-030.jsonl",
+      "fileMtime": 1767330000000,
+      "firstPrompt": "Message 1 in session 30",
+      "summary": "Test Session 30",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-031",
+      "fullPath": "/mock/path/session-031.jsonl",
+      "fileMtime": 1767333600000,
+      "firstPrompt": "Message 1 in session 31",
+      "summary": "Test Session 31",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-032",
+      "fullPath": "/mock/path/session-032.jsonl",
+      "fileMtime": 1767337200000,
+      "firstPrompt": "Message 1 in session 32",
+      "summary": "Test Session 32",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-033",
+      "fullPath": "/mock/path/session-033.jsonl",
+      "fileMtime": 1767340800000,
+      "firstPrompt": "Message 1 in session 33",
+      "summary": "Test Session 33",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-034",
+      "fullPath": "/mock/path/session-034.jsonl",
+      "fileMtime": 1767344400000,
+      "firstPrompt": "Message 1 in session 34",
+      "summary": "Test Session 34",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-035",
+      "fullPath": "/mock/path/session-035.jsonl",
+      "fileMtime": 1767348000000,
+      "firstPrompt": "Message 1 in session 35",
+      "summary": "Test Session 35",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-036",
+      "fullPath": "/mock/path/session-036.jsonl",
+      "fileMtime": 1767351600000,
+      "firstPrompt": "Message 1 in session 36",
+      "summary": "Test Session 36",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-037",
+      "fullPath": "/mock/path/session-037.jsonl",
+      "fileMtime": 1767355200000,
+      "firstPrompt": "Message 1 in session 37",
+      "summary": "Test Session 37",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-038",
+      "fullPath": "/mock/path/session-038.jsonl",
+      "fileMtime": 1767358800000,
+      "firstPrompt": "Message 1 in session 38",
+      "summary": "Test Session 38",
+      "messageCount": 14
+    },
+    {
+      "sessionId": "session-039",
+      "fullPath": "/mock/path/session-039.jsonl",
+      "fileMtime": 1767362400000,
+      "firstPrompt": "Message 1 in session 39",
+      "summary": "Test Session 39",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-040",
+      "fullPath": "/mock/path/session-040.jsonl",
+      "fileMtime": 1767366000000,
+      "firstPrompt": "Message 1 in session 40",
+      "summary": "Test Session 40",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-041",
+      "fullPath": "/mock/path/session-041.jsonl",
+      "fileMtime": 1767369600000,
+      "firstPrompt": "Message 1 in session 41",
+      "summary": "Test Session 41",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-042",
+      "fullPath": "/mock/path/session-042.jsonl",
+      "fileMtime": 1767373200000,
+      "firstPrompt": "Message 1 in session 42",
+      "summary": "Test Session 42",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-043",
+      "fullPath": "/mock/path/session-043.jsonl",
+      "fileMtime": 1767376800000,
+      "firstPrompt": "Message 1 in session 43",
+      "summary": "Test Session 43",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-044",
+      "fullPath": "/mock/path/session-044.jsonl",
+      "fileMtime": 1767380400000,
+      "firstPrompt": "Message 1 in session 44",
+      "summary": "Test Session 44",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-045",
+      "fullPath": "/mock/path/session-045.jsonl",
+      "fileMtime": 1767384000000,
+      "firstPrompt": "Message 1 in session 45",
+      "summary": "Test Session 45",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-046",
+      "fullPath": "/mock/path/session-046.jsonl",
+      "fileMtime": 1767387600000,
+      "firstPrompt": "Message 1 in session 46",
+      "summary": "Test Session 46",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-047",
+      "fullPath": "/mock/path/session-047.jsonl",
+      "fileMtime": 1767391200000,
+      "firstPrompt": "Message 1 in session 47",
+      "summary": "Test Session 47",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-048",
+      "fullPath": "/mock/path/session-048.jsonl",
+      "fileMtime": 1767394800000,
+      "firstPrompt": "Message 1 in session 48",
+      "summary": "Test Session 48",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-049",
+      "fullPath": "/mock/path/session-049.jsonl",
+      "fileMtime": 1767398400000,
+      "firstPrompt": "Message 1 in session 49",
+      "summary": "Test Session 49",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-050",
+      "fullPath": "/mock/path/session-050.jsonl",
+      "fileMtime": 1767402000000,
+      "firstPrompt": "Message 1 in session 50",
+      "summary": "Test Session 50",
+      "messageCount": 14
+    },
+    {
+      "sessionId": "session-051",
+      "fullPath": "/mock/path/session-051.jsonl",
+      "fileMtime": 1767405600000,
+      "firstPrompt": "Message 1 in session 51",
+      "summary": "Test Session 51",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-052",
+      "fullPath": "/mock/path/session-052.jsonl",
+      "fileMtime": 1767409200000,
+      "firstPrompt": "Message 1 in session 52",
+      "summary": "Test Session 52",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-053",
+      "fullPath": "/mock/path/session-053.jsonl",
+      "fileMtime": 1767412800000,
+      "firstPrompt": "Message 1 in session 53",
+      "summary": "Test Session 53",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-054",
+      "fullPath": "/mock/path/session-054.jsonl",
+      "fileMtime": 1767416400000,
+      "firstPrompt": "Message 1 in session 54",
+      "summary": "Test Session 54",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-055",
+      "fullPath": "/mock/path/session-055.jsonl",
+      "fileMtime": 1767420000000,
+      "firstPrompt": "Message 1 in session 55",
+      "summary": "Test Session 55",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-056",
+      "fullPath": "/mock/path/session-056.jsonl",
+      "fileMtime": 1767423600000,
+      "firstPrompt": "Message 1 in session 56",
+      "summary": "Test Session 56",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-057",
+      "fullPath": "/mock/path/session-057.jsonl",
+      "fileMtime": 1767427200000,
+      "firstPrompt": "Message 1 in session 57",
+      "summary": "Test Session 57",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-058",
+      "fullPath": "/mock/path/session-058.jsonl",
+      "fileMtime": 1767430800000,
+      "firstPrompt": "Message 1 in session 58",
+      "summary": "Test Session 58",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-059",
+      "fullPath": "/mock/path/session-059.jsonl",
+      "fileMtime": 1767434400000,
+      "firstPrompt": "Message 1 in session 59",
+      "summary": "Test Session 59",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-060",
+      "fullPath": "/mock/path/session-060.jsonl",
+      "fileMtime": 1767438000000,
+      "firstPrompt": "Message 1 in session 60",
+      "summary": "Test Session 60",
+      "messageCount": 14
+    },
+    {
+      "sessionId": "session-061",
+      "fullPath": "/mock/path/session-061.jsonl",
+      "fileMtime": 1767441600000,
+      "firstPrompt": "Message 1 in session 61",
+      "summary": "Test Session 61",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-062",
+      "fullPath": "/mock/path/session-062.jsonl",
+      "fileMtime": 1767445200000,
+      "firstPrompt": "Message 1 in session 62",
+      "summary": "Test Session 62",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-063",
+      "fullPath": "/mock/path/session-063.jsonl",
+      "fileMtime": 1767448800000,
+      "firstPrompt": "Message 1 in session 63",
+      "summary": "Test Session 63",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-064",
+      "fullPath": "/mock/path/session-064.jsonl",
+      "fileMtime": 1767452400000,
+      "firstPrompt": "Message 1 in session 64",
+      "summary": "Test Session 64",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-065",
+      "fullPath": "/mock/path/session-065.jsonl",
+      "fileMtime": 1767456000000,
+      "firstPrompt": "Message 1 in session 65",
+      "summary": "Test Session 65",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-066",
+      "fullPath": "/mock/path/session-066.jsonl",
+      "fileMtime": 1767459600000,
+      "firstPrompt": "Message 1 in session 66",
+      "summary": "Test Session 66",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-067",
+      "fullPath": "/mock/path/session-067.jsonl",
+      "fileMtime": 1767463200000,
+      "firstPrompt": "Message 1 in session 67",
+      "summary": "Test Session 67",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-068",
+      "fullPath": "/mock/path/session-068.jsonl",
+      "fileMtime": 1767466800000,
+      "firstPrompt": "Message 1 in session 68",
+      "summary": "Test Session 68",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-069",
+      "fullPath": "/mock/path/session-069.jsonl",
+      "fileMtime": 1767470400000,
+      "firstPrompt": "Message 1 in session 69",
+      "summary": "Test Session 69",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-070",
+      "fullPath": "/mock/path/session-070.jsonl",
+      "fileMtime": 1767474000000,
+      "firstPrompt": "Message 1 in session 70",
+      "summary": "Test Session 70",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-071",
+      "fullPath": "/mock/path/session-071.jsonl",
+      "fileMtime": 1767477600000,
+      "firstPrompt": "Message 1 in session 71",
+      "summary": "Test Session 71",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-072",
+      "fullPath": "/mock/path/session-072.jsonl",
+      "fileMtime": 1767481200000,
+      "firstPrompt": "Message 1 in session 72",
+      "summary": "Test Session 72",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-073",
+      "fullPath": "/mock/path/session-073.jsonl",
+      "fileMtime": 1767484800000,
+      "firstPrompt": "Message 1 in session 73",
+      "summary": "Test Session 73",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-074",
+      "fullPath": "/mock/path/session-074.jsonl",
+      "fileMtime": 1767488400000,
+      "firstPrompt": "Message 1 in session 74",
+      "summary": "Test Session 74",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-075",
+      "fullPath": "/mock/path/session-075.jsonl",
+      "fileMtime": 1767492000000,
+      "firstPrompt": "Message 1 in session 75",
+      "summary": "Test Session 75",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-076",
+      "fullPath": "/mock/path/session-076.jsonl",
+      "fileMtime": 1767495600000,
+      "firstPrompt": "Message 1 in session 76",
+      "summary": "Test Session 76",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-077",
+      "fullPath": "/mock/path/session-077.jsonl",
+      "fileMtime": 1767499200000,
+      "firstPrompt": "Message 1 in session 77",
+      "summary": "Test Session 77",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-078",
+      "fullPath": "/mock/path/session-078.jsonl",
+      "fileMtime": 1767502800000,
+      "firstPrompt": "Message 1 in session 78",
+      "summary": "Test Session 78",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-079",
+      "fullPath": "/mock/path/session-079.jsonl",
+      "fileMtime": 1767506400000,
+      "firstPrompt": "Message 1 in session 79",
+      "summary": "Test Session 79",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-080",
+      "fullPath": "/mock/path/session-080.jsonl",
+      "fileMtime": 1767510000000,
+      "firstPrompt": "Message 1 in session 80",
+      "summary": "Test Session 80",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-081",
+      "fullPath": "/mock/path/session-081.jsonl",
+      "fileMtime": 1767513600000,
+      "firstPrompt": "Message 1 in session 81",
+      "summary": "Test Session 81",
+      "messageCount": 14
+    },
+    {
+      "sessionId": "session-082",
+      "fullPath": "/mock/path/session-082.jsonl",
+      "fileMtime": 1767517200000,
+      "firstPrompt": "Message 1 in session 82",
+      "summary": "Test Session 82",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-083",
+      "fullPath": "/mock/path/session-083.jsonl",
+      "fileMtime": 1767520800000,
+      "firstPrompt": "Message 1 in session 83",
+      "summary": "Test Session 83",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-084",
+      "fullPath": "/mock/path/session-084.jsonl",
+      "fileMtime": 1767524400000,
+      "firstPrompt": "Message 1 in session 84",
+      "summary": "Test Session 84",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-085",
+      "fullPath": "/mock/path/session-085.jsonl",
+      "fileMtime": 1767528000000,
+      "firstPrompt": "Message 1 in session 85",
+      "summary": "Test Session 85",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-086",
+      "fullPath": "/mock/path/session-086.jsonl",
+      "fileMtime": 1767531600000,
+      "firstPrompt": "Message 1 in session 86",
+      "summary": "Test Session 86",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-087",
+      "fullPath": "/mock/path/session-087.jsonl",
+      "fileMtime": 1767535200000,
+      "firstPrompt": "Message 1 in session 87",
+      "summary": "Test Session 87",
+      "messageCount": 20
+    },
+    {
+      "sessionId": "session-088",
+      "fullPath": "/mock/path/session-088.jsonl",
+      "fileMtime": 1767538800000,
+      "firstPrompt": "Message 1 in session 88",
+      "summary": "Test Session 88",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-089",
+      "fullPath": "/mock/path/session-089.jsonl",
+      "fileMtime": 1767542400000,
+      "firstPrompt": "Message 1 in session 89",
+      "summary": "Test Session 89",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-090",
+      "fullPath": "/mock/path/session-090.jsonl",
+      "fileMtime": 1767546000000,
+      "firstPrompt": "Message 1 in session 90",
+      "summary": "Test Session 90",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-091",
+      "fullPath": "/mock/path/session-091.jsonl",
+      "fileMtime": 1767549600000,
+      "firstPrompt": "Message 1 in session 91",
+      "summary": "Test Session 91",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-092",
+      "fullPath": "/mock/path/session-092.jsonl",
+      "fileMtime": 1767553200000,
+      "firstPrompt": "Message 1 in session 92",
+      "summary": "Test Session 92",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-093",
+      "fullPath": "/mock/path/session-093.jsonl",
+      "fileMtime": 1767556800000,
+      "firstPrompt": "Message 1 in session 93",
+      "summary": "Test Session 93",
+      "messageCount": 10
+    },
+    {
+      "sessionId": "session-094",
+      "fullPath": "/mock/path/session-094.jsonl",
+      "fileMtime": 1767560400000,
+      "firstPrompt": "Message 1 in session 94",
+      "summary": "Test Session 94",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-095",
+      "fullPath": "/mock/path/session-095.jsonl",
+      "fileMtime": 1767564000000,
+      "firstPrompt": "Message 1 in session 95",
+      "summary": "Test Session 95",
+      "messageCount": 14
+    },
+    {
+      "sessionId": "session-096",
+      "fullPath": "/mock/path/session-096.jsonl",
+      "fileMtime": 1767567600000,
+      "firstPrompt": "Message 1 in session 96",
+      "summary": "Test Session 96",
+      "messageCount": 16
+    },
+    {
+      "sessionId": "session-097",
+      "fullPath": "/mock/path/session-097.jsonl",
+      "fileMtime": 1767571200000,
+      "firstPrompt": "Message 1 in session 97",
+      "summary": "Test Session 97",
+      "messageCount": 12
+    },
+    {
+      "sessionId": "session-098",
+      "fullPath": "/mock/path/session-098.jsonl",
+      "fileMtime": 1767574800000,
+      "firstPrompt": "Message 1 in session 98",
+      "summary": "Test Session 98",
+      "messageCount": 14
+    },
+    {
+      "sessionId": "session-099",
+      "fullPath": "/mock/path/session-099.jsonl",
+      "fileMtime": 1767578400000,
+      "firstPrompt": "Message 1 in session 99",
+      "summary": "Test Session 99",
+      "messageCount": 18
+    },
+    {
+      "sessionId": "session-100",
+      "fullPath": "/mock/path/session-100.jsonl",
+      "fileMtime": 1767582000000,
+      "firstPrompt": "Message 1 in session 100",
+      "summary": "Test Session 100",
+      "messageCount": 18
+    }
+  ]
+}

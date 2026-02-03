@@ -1,0 +1,37 @@
+{
+  "name": "my-claudia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A cross-platform UI for Code CLI (Claude Code / Cursor / Codex)",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "server:dev": "pnpm --filter @my-claudia/server run dev",
+    "gateway:dev": "pnpm --filter @my-claudia/gateway run dev",
+    "desktop:dev": "pnpm --filter @my-claudia/desktop run dev",
+    "clean": "pnpm -r run clean && rm -rf node_modules",
+    "test": "pnpm -r run test",
+    "test:unit": "pnpm -r run test",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:workflows": "playwright test e2e/tests/user-workflows.spec.ts",
+    "test:e2e:performance": "playwright test e2e/tests/performance.spec.ts",
+    "fixtures:generate": "node e2e/fixtures/performance-data/generate-fixtures.js",
+    "test:desktop": "pnpm --filter @my-claudia/desktop run test",
+    "test:server": "pnpm --filter @my-claudia/server run test"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "devDependencies": {
+    "@playwright/test": "^1.58.1",
+    "better-sqlite3": "^11.0.0",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
+  }
+}

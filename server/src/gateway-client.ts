@@ -1,0 +1,352 @@
+import WebSocket from 'ws';
+import { SocksProxyAgent } from 'socks-proxy-agent';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import * as crypto from 'crypto';
+import type {
+  GatewayRegisterMessage,
+  GatewayToBackendMessage,
+  BackendToGatewayMessage,
+  GatewayClientAuthMessage,
+  GatewayForwardedMessage,
+  GatewayClientConnectedMessage,
+  GatewayClientDisconnectedMessage,
+  ClientMessage,
+  ServerMessage
+} from '@my-claudia/shared';
+import { validateApiKey } from './auth.js';
+
+// Config storage path
+const CONFIG_DIR = path.join(os.homedir(), '.my-claudia');
+const DEVICE_CONFIG_PATH = path.join(CONFIG_DIR, 'device.json');
+
+interface DeviceConfig {
+  deviceId: string;
+  createdAt: number;
+}
+
+interface GatewayClientConfig {
+  gatewayUrl: string;
+  gatewaySecret: string;
+  name?: string;
+  proxyUrl?: string;
+  proxyAuth?: {
+    username: string;
+    password: string;
+  };
+}
+
+type MessageHandler = (clientId: string, message: ClientMessage) => Promise<ServerMessage | null>;
+type ClientEventHandler = (clientId: string) => void;
+
+/**
+ * Get or create a stable device ID for this backend
+ */
+function getOrCreateDeviceId(): string {
+  // Ensure config directory exists
+  if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+
+  // Try to load existing device ID
+  if (fs.existsSync(DEVICE_CONFIG_PATH)) {
+    try {
+      const config: DeviceConfig = JSON.parse(fs.readFileSync(DEVICE_CONFIG_PATH, 'utf-8'));
+      return config.deviceId;
+    } catch {
+      // Fall through to create new ID
+    }
+  }
+
+  // Generate a new device ID
+  const deviceId = crypto.randomUUID();
+  const config: DeviceConfig = {
+    deviceId,
+    createdAt: Date.now()
+  };
+  fs.writeFileSync(DEVICE_CONFIG_PATH, JSON.stringify(config, null, 2));
+  console.log(`[Gateway] Generated new device ID: ${deviceId}`);
+
+  return deviceId;
+}
+
+export class GatewayClient {
+  private ws: WebSocket | null = null;
+  private config: GatewayClientConfig;
+  private deviceId: string;
+  private backendId: string | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 10;
+  private reconnectInterval = 5000;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private isConnected = false;
+  private messageHandler: MessageHandler | null = null;
+  private clientConnectedHandler: ClientEventHandler | null = null;
+  private clientDisconnectedHandler: ClientEventHandler | null = null;
+
+  // Track authenticated clients (client auth is verified by backend)
+  private authenticatedClients = new Set<string>();
+
+  constructor(config: GatewayClientConfig) {
+    this.config = config;
+    this.deviceId = getOrCreateDeviceId();
+  }
+
+  /**
+   * Set the handler for client messages
+   */
+  onMessage(handler: MessageHandler): void {
+    this.messageHandler = handler;
+  }
+
+  /**
+   * Set the handler for client connect events
+   */
+  onClientConnected(handler: ClientEventHandler): void {
+    this.clientConnectedHandler = handler;
+  }
+
+  /**
+   * Set the handler for client disconnect events
+   */
+  onClientDisconnected(handler: ClientEventHandler): void {
+    this.clientDisconnectedHandler = handler;
+  }
+
+  /**
+   * Connect to the Gateway
+   */
+  connect(): void {
+    if (this.ws) {
+      this.ws.close();
+    }
+
+    const wsUrl = this.config.gatewayUrl.replace(/^http/, 'ws');
+    console.log(`[Gateway] Connecting to ${wsUrl}...`);
+
+    // Configure WebSocket options
+    const wsOptions: any = {};
+
+    // Add SOCKS5 proxy agent if configured
+    if (this.config.proxyUrl) {
+      try {
+        let proxyUrl = this.config.proxyUrl;
+
+        // Add authentication to proxy URL if provided
+        if (this.config.proxyAuth) {
+          const url = new URL(proxyUrl);
+          url.username = this.config.proxyAuth.username;
+          url.password = this.config.proxyAuth.password;
+          proxyUrl = url.toString();
+        }
+
+        wsOptions.agent = new SocksProxyAgent(proxyUrl);
+        console.log(`[Gateway] Using SOCKS5 proxy: ${this.config.proxyUrl}`);
+      } catch (error) {
+        console.error('[Gateway] Failed to configure proxy:', error);
+      }
+    }
+
+    this.ws = new WebSocket(`${wsUrl}/ws`, wsOptions);
+
+    this.ws.on('open', () => {
+      console.log('[Gateway] Connected, registering...');
+      this.register();
+    });
+
+    this.ws.on('message', (data: Buffer) => {
+      try {
+        const message: GatewayToBackendMessage = JSON.parse(data.toString());
+        this.handleMessage(message);
+      } catch (error) {
+        console.error('[Gateway] Failed to parse message:', error);
+      }
+    });
+
+    this.ws.on('close', () => {
+      console.log('[Gateway] Disconnected');
+      this.isConnected = false;
+      this.backendId = null;
+      this.scheduleReconnect();
+    });
+
+    this.ws.on('error', (error) => {
+      console.error('[Gateway] Connection error:', error);
+    });
+  }
+
+  /**
+   * Disconnect from the Gateway
+   */
+  disconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    this.isConnected = false;
+    this.backendId = null;
+  }
+
+  /**
+   * Send a message to a specific client via Gateway
+   */
+  sendToClient(clientId: string, message: ServerMessage): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error('[Gateway] Cannot send message: not connected');
+      return;
+    }
+
+    const response: BackendToGatewayMessage = {
+      type: 'backend_response',
+      clientId,
+      message
+    };
+
+    this.ws.send(JSON.stringify(response));
+  }
+
+  /**
+   * Get the current backend ID (assigned by Gateway)
+   */
+  getBackendId(): string | null {
+    return this.backendId;
+  }
+
+  /**
+   * Check if connected to Gateway
+   */
+  isGatewayConnected(): boolean {
+    return this.isConnected;
+  }
+
+  private register(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const registerMessage: GatewayRegisterMessage = {
+      type: 'register',
+      gatewaySecret: this.config.gatewaySecret,
+      deviceId: this.deviceId,
+      name: this.config.name
+    };
+
+    this.ws.send(JSON.stringify(registerMessage));
+  }
+
+  private handleMessage(message: GatewayToBackendMessage): void {
+    switch (message.type) {
+      case 'register_result':
+        if (message.success && message.backendId) {
+          this.isConnected = true;
+          this.backendId = message.backendId;
+          this.reconnectAttempts = 0;
+          console.log(`[Gateway] Registered as backend: ${this.backendId}`);
+        } else {
+          console.error('[Gateway] Registration failed:', message.error);
+          this.ws?.close();
+        }
+        break;
+
+      case 'client_connected':
+        this.handleClientConnected(message as GatewayClientConnectedMessage);
+        break;
+
+      case 'client_auth':
+        this.handleClientAuth(message as GatewayClientAuthMessage);
+        break;
+
+      case 'forwarded':
+        this.handleForwardedMessage(message as GatewayForwardedMessage);
+        break;
+
+      case 'client_disconnected':
+        this.handleClientDisconnected(message as GatewayClientDisconnectedMessage);
+        break;
+    }
+  }
+
+  private handleClientConnected(message: GatewayClientConnectedMessage): void {
+    console.log(`[Gateway] Client connected: ${message.clientId}`);
+    this.clientConnectedHandler?.(message.clientId);
+  }
+
+  private handleClientAuth(message: GatewayClientAuthMessage): void {
+    console.log(`[Gateway] Client auth request: ${message.clientId}`);
+
+    // Validate the API key
+    const isValid = validateApiKey(message.apiKey);
+
+    if (isValid) {
+      this.authenticatedClients.add(message.clientId);
+      console.log(`[Gateway] Client ${message.clientId} authenticated successfully`);
+    } else {
+      console.log(`[Gateway] Client ${message.clientId} authentication failed`);
+    }
+
+    // Send auth result back to Gateway
+    const response: BackendToGatewayMessage = {
+      type: 'client_auth_result',
+      clientId: message.clientId,
+      success: isValid,
+      error: isValid ? undefined : 'Invalid API key'
+    };
+
+    this.ws?.send(JSON.stringify(response));
+  }
+
+  private async handleForwardedMessage(message: GatewayForwardedMessage): Promise<void> {
+    const { clientId, message: clientMessage } = message;
+
+    // Check if client is authenticated
+    if (!this.authenticatedClients.has(clientId)) {
+      console.log(`[Gateway] Rejecting message from unauthenticated client: ${clientId}`);
+      this.sendToClient(clientId, {
+        type: 'error',
+        code: 'UNAUTHORIZED',
+        message: 'Not authenticated'
+      });
+      return;
+    }
+
+    // Forward to message handler
+    if (this.messageHandler) {
+      try {
+        const response = await this.messageHandler(clientId, clientMessage);
+        if (response) {
+          this.sendToClient(clientId, response);
+        }
+      } catch (error) {
+        console.error('[Gateway] Error handling message:', error);
+        this.sendToClient(clientId, {
+          type: 'error',
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Internal error'
+        });
+      }
+    }
+  }
+
+  private handleClientDisconnected(message: GatewayClientDisconnectedMessage): void {
+    console.log(`[Gateway] Client disconnected: ${message.clientId}`);
+    this.authenticatedClients.delete(message.clientId);
+    this.clientDisconnectedHandler?.(message.clientId);
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.log('[Gateway] Max reconnect attempts reached');
+      return;
+    }
+
+    this.reconnectAttempts++;
+    console.log(`[Gateway] Reconnecting in ${this.reconnectInterval}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.connect();
+    }, this.reconnectInterval);
+  }
+}

@@ -1,0 +1,19 @@
+{"type":"summary","summary":"Test Session 77","leafUuid":"uuid-session-077"}
+{"type":"user","message":{"role":"user","content":"Message 1 in session 77"},"uuid":"session-077-user-0","timestamp":"2026-01-04T04:00:00.000Z","sessionId":"session-077","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 1 for session 77"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-077-assistant-0","timestamp":"2026-01-04T04:00:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 2 in session 77"},"uuid":"session-077-user-1","timestamp":"2026-01-04T04:01:00.000Z","sessionId":"session-077","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 2 for session 77"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-077-assistant-1","timestamp":"2026-01-04T04:01:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 3 in session 77"},"uuid":"session-077-user-2","timestamp":"2026-01-04T04:02:00.000Z","sessionId":"session-077","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 3 for session 77"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-077-assistant-2","timestamp":"2026-01-04T04:02:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 4 in session 77"},"uuid":"session-077-user-3","timestamp":"2026-01-04T04:03:00.000Z","sessionId":"session-077","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 4 for session 77"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-077-assistant-3","timestamp":"2026-01-04T04:03:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 5 in session 77"},"uuid":"session-077-user-4","timestamp":"2026-01-04T04:04:00.000Z","sessionId":"session-077","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 5 for session 77"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-077-assistant-4","timestamp":"2026-01-04T04:04:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 6 in session 77"},"uuid":"session-077-user-5","timestamp":"2026-01-04T04:05:00.000Z","sessionId":"session-077","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 6 for session 77"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-077-assistant-5","timestamp":"2026-01-04T04:05:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 7 in session 77"},"uuid":"session-077-user-6","timestamp":"2026-01-04T04:06:00.000Z","sessionId":"session-077","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 7 for session 77"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-077-assistant-6","timestamp":"2026-01-04T04:06:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 8 in session 77"},"uuid":"session-077-user-7","timestamp":"2026-01-04T04:07:00.000Z","sessionId":"session-077","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 8 for session 77"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-077-assistant-7","timestamp":"2026-01-04T04:07:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 9 in session 77"},"uuid":"session-077-user-8","timestamp":"2026-01-04T04:08:00.000Z","sessionId":"session-077","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 9 for session 77"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-077-assistant-8","timestamp":"2026-01-04T04:08:02.000Z"}

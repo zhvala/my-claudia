@@ -1,0 +1,84 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.output/
+target/
+
+# Tauri
+apps/desktop/src-tauri/target/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Misc
+*.tgz
+.turbo/
+
+# Claude Code local settings
+.claude/
+
+# Test results and reports
+playwright-report/
+test-results/
+e2e/fixtures/security-tests/*.exe
+e2e/fixtures/security-tests/*renamed*
+
+# Development documentation (may contain local paths)
+ARCHITECTURE_REFACTORING_SUMMARY.md
+E2E_TESTS_SUMMARY.md
+
+# Playwright MCP cache
+.playwright-mcp/
+
+# Server data directory
+server/data/
+
+# macOS system files
+*.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project

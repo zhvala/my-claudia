@@ -1,0 +1,205 @@
+import Database from 'better-sqlite3';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
+
+const DB_DIR = path.join(os.homedir(), '.my-claudia');
+const DB_PATH = path.join(DB_DIR, 'data.db');
+
+export function initDatabase(): Database.Database {
+  // Ensure directory exists
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
+
+  const db = new Database(DB_PATH);
+
+  // Enable WAL mode for better concurrent access
+  db.pragma('journal_mode = WAL');
+
+  // Run migrations
+  runMigrations(db);
+
+  return db;
+}
+
+function runMigrations(db: Database.Database): void {
+  // Create migrations table if not exists
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS migrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      applied_at INTEGER NOT NULL
+    )
+  `);
+
+  const migrations: Array<{ name: string; sql: string }> = [
+    {
+      name: '001_initial_schema',
+      sql: `
+        -- providers 表 (用户配置的多 Provider)
+        CREATE TABLE IF NOT EXISTS providers (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL DEFAULT 'claude',
+          cli_path TEXT,
+          env TEXT,
+          is_default INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+
+        -- projects 表
+        CREATE TABLE IF NOT EXISTS projects (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          type TEXT CHECK(type IN ('chat_only', 'code')) DEFAULT 'code',
+          provider_id TEXT,
+          root_path TEXT,
+          system_prompt TEXT,
+          permission_policy TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL
+        );
+
+        -- sessions 表
+        CREATE TABLE IF NOT EXISTS sessions (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          name TEXT,
+          provider_id TEXT,
+          sdk_session_id TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+          FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL
+        );
+
+        -- messages 表
+        CREATE TABLE IF NOT EXISTS messages (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          role TEXT CHECK(role IN ('user', 'assistant', 'system')) NOT NULL,
+          content TEXT NOT NULL,
+          metadata TEXT,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        );
+
+        -- permission_logs 表
+        CREATE TABLE IF NOT EXISTS permission_logs (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          tool TEXT NOT NULL,
+          detail TEXT NOT NULL,
+          decision TEXT CHECK(decision IN ('allow', 'deny', 'timeout')) NOT NULL,
+          remembered INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        );
+
+        -- Create indexes
+        CREATE INDEX IF NOT EXISTS idx_sessions_project_id ON sessions(project_id);
+        CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
+        CREATE INDEX IF NOT EXISTS idx_permission_logs_session_id ON permission_logs(session_id);
+      `
+    },
+    {
+      name: '002_gateway_config',
+      sql: `
+        -- gateway_config 表 (Server 连接到 Gateway 的配置)
+        CREATE TABLE IF NOT EXISTS gateway_config (
+          id INTEGER PRIMARY KEY CHECK(id = 1), -- 单例配置
+          enabled INTEGER NOT NULL DEFAULT 0,
+          gateway_url TEXT,
+          gateway_secret TEXT,
+          backend_name TEXT,
+          backend_id TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+
+        -- 插入默认配置
+        INSERT OR IGNORE INTO gateway_config (id, enabled, created_at, updated_at)
+        VALUES (1, 0, strftime('%s', 'now') * 1000, strftime('%s', 'now') * 1000);
+      `
+    },
+    {
+      name: '003_servers_table',
+      sql: `
+        -- servers 表 (Client 连接的 Server/Backend 配置)
+        CREATE TABLE IF NOT EXISTS servers (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          address TEXT NOT NULL,
+          connection_mode TEXT CHECK(connection_mode IN ('direct', 'gateway')) DEFAULT 'direct',
+
+          -- Gateway mode fields
+          gateway_url TEXT,
+          gateway_secret TEXT,
+          backend_id TEXT,
+
+          -- Common fields
+          api_key TEXT,
+          client_id TEXT,
+          is_default INTEGER DEFAULT 0,
+          requires_auth INTEGER DEFAULT 0,
+
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          last_connected INTEGER
+        );
+
+        -- 插入默认的 local server
+        INSERT OR IGNORE INTO servers (
+          id, name, address, connection_mode, is_default, requires_auth,
+          created_at, updated_at
+        ) VALUES (
+          'local',
+          'Local Server',
+          'localhost:3100',
+          'direct',
+          1,
+          0,
+          strftime('%s', 'now') * 1000,
+          strftime('%s', 'now') * 1000
+        );
+
+        -- Create index for quick lookup
+        CREATE INDEX IF NOT EXISTS idx_servers_is_default ON servers(is_default);
+      `
+    },
+    {
+      name: '004_proxy_support',
+      sql: `
+        -- Add proxy support to gateway_config table
+        ALTER TABLE gateway_config ADD COLUMN proxy_url TEXT;
+        ALTER TABLE gateway_config ADD COLUMN proxy_username TEXT;
+        ALTER TABLE gateway_config ADD COLUMN proxy_password TEXT;
+
+        -- Add proxy support to servers table (for Gateway mode connections)
+        ALTER TABLE servers ADD COLUMN proxy_url TEXT;
+        ALTER TABLE servers ADD COLUMN proxy_username TEXT;
+        ALTER TABLE servers ADD COLUMN proxy_password TEXT;
+      `
+    }
+  ];
+
+  const appliedMigrations = new Set(
+    (db.prepare('SELECT name FROM migrations').all() as Array<{ name: string }>).map((row) => row.name)
+  );
+
+  for (const migration of migrations) {
+    if (!appliedMigrations.has(migration.name)) {
+      console.log(`Applying migration: ${migration.name}`);
+      db.exec(migration.sql);
+      db.prepare('INSERT INTO migrations (name, applied_at) VALUES (?, ?)').run(
+        migration.name,
+        Date.now()
+      );
+    }
+  }
+}
+
+export type { Database };

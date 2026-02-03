@@ -1,0 +1,214 @@
+import * as os from 'os';
+import { createServer, createVirtualClient, type ServerContext } from './server.js';
+import { GatewayClient } from './gateway-client.js';
+import type { ServerMessage } from '@my-claudia/shared';
+import { initDatabase } from './storage/db.js';
+import type { GatewayConfig } from './routes/gateway.js';
+
+const PORT = parseInt(process.env.PORT || '3100', 10);
+// Listen on 0.0.0.0 to allow connections from other devices on the network
+const HOST = process.env.HOST || '0.0.0.0';
+
+// Gateway configuration from environment (legacy support)
+const GATEWAY_URL = process.env.GATEWAY_URL;
+const GATEWAY_SECRET = process.env.GATEWAY_SECRET;
+const GATEWAY_NAME = process.env.GATEWAY_NAME || `Backend on ${os.hostname()}`;
+
+let gatewayClient: GatewayClient | null = null;
+let serverContext: ServerContext | null = null;
+
+// Track virtual clients for Gateway connections
+const virtualClients = new Map<string, ReturnType<typeof createVirtualClient>>();
+
+// Load Gateway configuration from database
+function loadGatewayConfig(): GatewayConfig | null {
+  try {
+    const db = initDatabase();
+    const row = db.prepare(`
+      SELECT id, enabled, gateway_url, gateway_secret, backend_name, backend_id,
+             proxy_url, proxy_username, proxy_password,
+             created_at, updated_at
+      FROM gateway_config
+      WHERE id = 1
+    `).get() as any;
+
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      enabled: row.enabled === 1,
+      gatewayUrl: row.gateway_url,
+      gatewaySecret: row.gateway_secret,
+      backendName: row.backend_name,
+      backendId: row.backend_id,
+      proxyUrl: row.proxy_url,
+      proxyUsername: row.proxy_username,
+      proxyPassword: row.proxy_password,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  } catch (error) {
+    console.error('Failed to load gateway config:', error);
+    return null;
+  }
+}
+
+// Connect to Gateway with config
+async function connectToGateway(config: GatewayConfig): Promise<void> {
+  if (!config.gatewayUrl || !config.gatewaySecret) {
+    console.error('[Gateway] URL or Secret not configured');
+    return;
+  }
+
+  if (gatewayClient) {
+    gatewayClient.disconnect();
+  }
+
+  console.log(`\n🌐 Gateway connection configured:`);
+  console.log(`   URL: ${config.gatewayUrl}`);
+  console.log(`   Name: ${config.backendName || `Backend on ${os.hostname()}`}`);
+  if (config.proxyUrl) {
+    console.log(`   Proxy: ${config.proxyUrl}`);
+  }
+
+  const gatewayClientConfig: any = {
+    gatewayUrl: config.gatewayUrl,
+    gatewaySecret: config.gatewaySecret,
+    name: config.backendName || `Backend on ${os.hostname()}`
+  };
+
+  // Add proxy configuration if provided
+  if (config.proxyUrl) {
+    gatewayClientConfig.proxyUrl = config.proxyUrl;
+    if (config.proxyUsername || config.proxyPassword) {
+      gatewayClientConfig.proxyAuth = {
+        username: config.proxyUsername || '',
+        password: config.proxyPassword || ''
+      };
+    }
+  }
+
+  gatewayClient = new GatewayClient(gatewayClientConfig);
+
+  if (!serverContext) return;
+
+  // Set up message handler - integrate with server's message handling
+  gatewayClient.onMessage(async (clientId, message) => {
+    console.log(`[Gateway] Message from ${clientId}:`, message.type);
+
+    // Get or create virtual client for this Gateway client
+    let virtualClient = virtualClients.get(clientId);
+    if (!virtualClient) {
+      virtualClient = createVirtualClient(clientId, {
+        send: (msg: ServerMessage) => {
+          gatewayClient?.sendToClient(clientId, msg);
+        }
+      });
+      virtualClients.set(clientId, virtualClient);
+    }
+
+    // Handle the message using the server's message handler
+    await serverContext!.handleMessage(virtualClient, message);
+
+    // Return null since we send responses through the virtual client
+    return null;
+  });
+
+  // Clean up virtual client on disconnect
+  gatewayClient.onClientDisconnected((clientId) => {
+    virtualClients.delete(clientId);
+    console.log(`[Gateway] Cleaned up virtual client: ${clientId}`);
+  });
+
+  gatewayClient.connect();
+
+  // Update backend ID when registered
+  const checkBackendId = setInterval(() => {
+    const backendId = gatewayClient?.getBackendId();
+    if (backendId && serverContext) {
+      serverContext.updateGatewayBackendId(backendId);
+      console.log(`[Gateway] Backend ID updated: ${backendId}`);
+      clearInterval(checkBackendId);
+    }
+  }, 1000);
+
+  // Stop checking after 30 seconds
+  setTimeout(() => clearInterval(checkBackendId), 30000);
+}
+
+// Disconnect from Gateway
+async function disconnectFromGateway(): Promise<void> {
+  if (gatewayClient) {
+    console.log('📡 Disconnecting from Gateway...');
+    gatewayClient.disconnect();
+    gatewayClient = null;
+    virtualClients.clear();
+    if (serverContext) {
+      serverContext.updateGatewayBackendId(null);
+    }
+  }
+}
+
+async function main() {
+  try {
+    serverContext = await createServer();
+    const { server, handleMessage, connectGateway, disconnectGateway } = serverContext;
+
+    // Pass gateway connection handlers to server context
+    // (These are called by the API routes)
+    // @ts-ignore - Modify the returned functions to use our gateway management
+    serverContext.connectGateway = connectToGateway;
+    serverContext.disconnectGateway = disconnectFromGateway;
+
+    server.listen(PORT, HOST, async () => {
+      console.log(`🚀 My Claudia Server running at http://${HOST}:${PORT}`);
+      console.log(`📡 WebSocket endpoint: ws://${HOST}:${PORT}/ws`);
+
+      // Priority 1: Environment variables (for backward compatibility)
+      if (GATEWAY_URL && GATEWAY_SECRET) {
+        console.log(`\n🌐 Gateway connection from environment variables`);
+        await connectToGateway({
+          id: 1,
+          enabled: true,
+          gatewayUrl: GATEWAY_URL,
+          gatewaySecret: GATEWAY_SECRET,
+          backendName: GATEWAY_NAME,
+          backendId: null,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
+      }
+      // Priority 2: Database configuration
+      else {
+        const dbConfig = loadGatewayConfig();
+        if (dbConfig && dbConfig.enabled && dbConfig.gatewayUrl && dbConfig.gatewaySecret) {
+          console.log(`\n🌐 Gateway connection from database configuration`);
+          await connectToGateway(dbConfig);
+        }
+      }
+    });
+
+    // Graceful shutdown
+    const shutdown = () => {
+      console.log('\n🛑 Shutting down server...');
+
+      // Disconnect from Gateway
+      if (gatewayClient) {
+        gatewayClient.disconnect();
+      }
+
+      server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+main();

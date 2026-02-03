@@ -1,0 +1,13 @@
+{"type":"summary","summary":"Test Session 72","leafUuid":"uuid-session-072"}
+{"type":"user","message":{"role":"user","content":"Message 1 in session 72"},"uuid":"session-072-user-0","timestamp":"2026-01-03T23:00:00.000Z","sessionId":"session-072","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 1 for session 72"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-072-assistant-0","timestamp":"2026-01-03T23:00:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 2 in session 72"},"uuid":"session-072-user-1","timestamp":"2026-01-03T23:01:00.000Z","sessionId":"session-072","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 2 for session 72"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-072-assistant-1","timestamp":"2026-01-03T23:01:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 3 in session 72"},"uuid":"session-072-user-2","timestamp":"2026-01-03T23:02:00.000Z","sessionId":"session-072","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 3 for session 72"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-072-assistant-2","timestamp":"2026-01-03T23:02:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 4 in session 72"},"uuid":"session-072-user-3","timestamp":"2026-01-03T23:03:00.000Z","sessionId":"session-072","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 4 for session 72"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-072-assistant-3","timestamp":"2026-01-03T23:03:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 5 in session 72"},"uuid":"session-072-user-4","timestamp":"2026-01-03T23:04:00.000Z","sessionId":"session-072","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 5 for session 72"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-072-assistant-4","timestamp":"2026-01-03T23:04:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 6 in session 72"},"uuid":"session-072-user-5","timestamp":"2026-01-03T23:05:00.000Z","sessionId":"session-072","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 6 for session 72"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-072-assistant-5","timestamp":"2026-01-03T23:05:02.000Z"}

@@ -1,0 +1,11 @@
+{"type":"summary","summary":"Test Session 56","leafUuid":"uuid-session-056"}
+{"type":"user","message":{"role":"user","content":"Message 1 in session 56"},"uuid":"session-056-user-0","timestamp":"2026-01-03T07:00:00.000Z","sessionId":"session-056","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 1 for session 56"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-056-assistant-0","timestamp":"2026-01-03T07:00:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 2 in session 56"},"uuid":"session-056-user-1","timestamp":"2026-01-03T07:01:00.000Z","sessionId":"session-056","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 2 for session 56"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-056-assistant-1","timestamp":"2026-01-03T07:01:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 3 in session 56"},"uuid":"session-056-user-2","timestamp":"2026-01-03T07:02:00.000Z","sessionId":"session-056","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 3 for session 56"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-056-assistant-2","timestamp":"2026-01-03T07:02:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 4 in session 56"},"uuid":"session-056-user-3","timestamp":"2026-01-03T07:03:00.000Z","sessionId":"session-056","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 4 for session 56"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-056-assistant-3","timestamp":"2026-01-03T07:03:02.000Z"}
+{"type":"user","message":{"role":"user","content":"Message 5 in session 56"},"uuid":"session-056-user-4","timestamp":"2026-01-03T07:04:00.000Z","sessionId":"session-056","cwd":"/test/project"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response 5 for session 56"}],"usage":{"input_tokens":20,"output_tokens":30}},"uuid":"session-056-assistant-4","timestamp":"2026-01-03T07:04:02.000Z"}

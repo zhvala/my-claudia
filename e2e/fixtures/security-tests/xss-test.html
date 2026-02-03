@@ -1,0 +1,8 @@
+<!DOCTYPE html>
+<html>
+<head><title>XSS Test</title></head>
+<body>
+<script>alert('XSS');</script>
+<img src=x onerror="alert('XSS')">
+</body>
+</html>

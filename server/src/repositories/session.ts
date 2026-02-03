@@ -1,0 +1,122 @@
+import { BaseRepository } from './base.js';
+import type { Database } from 'better-sqlite3';
+import type { Session } from '@my-claudia/shared';
+import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * Repository for Session entity
+ *
+ * Handles all database operations for sessions, including:
+ * - Field mapping between snake_case (DB) and camelCase (TypeScript)
+ * - Foreign key relationships with projects and providers
+ * - Timestamp management
+ */
+export class SessionRepository extends BaseRepository<
+  Session,
+  Omit<Session, 'id' | 'createdAt' | 'updatedAt'>,
+  Partial<Omit<Session, 'id' | 'createdAt' | 'updatedAt'>>
+> {
+  constructor(db: Database) {
+    super(db, 'sessions');
+  }
+
+  /**
+   * Map database row (snake_case) to Session entity (camelCase)
+   */
+  mapRow(row: any): Session {
+    return {
+      id: row.id,
+      projectId: row.project_id,
+      name: row.name,
+      providerId: row.provider_id,
+      sdkSessionId: row.sdk_session_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  /**
+   * Generate INSERT query for new session
+   */
+  createQuery(data: Omit<Session, 'id' | 'createdAt' | 'updatedAt'>): { sql: string; params: any[] } {
+    const id = uuidv4();
+    const now = Date.now();
+
+    return {
+      sql: `
+        INSERT INTO sessions (id, project_id, name, provider_id, sdk_session_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+      params: [
+        id,
+        data.projectId,
+        data.name || null,
+        data.providerId || null,
+        data.sdkSessionId || null,
+        now,
+        now
+      ]
+    };
+  }
+
+  /**
+   * Generate UPDATE query for existing session
+   */
+  updateQuery(id: string, data: Partial<Omit<Session, 'id' | 'createdAt' | 'updatedAt'>>): { sql: string; params: any[] } {
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    // Build dynamic UPDATE query based on provided fields
+    if (data.projectId !== undefined) {
+      updates.push('project_id = ?');
+      params.push(data.projectId);
+    }
+    if (data.name !== undefined) {
+      updates.push('name = ?');
+      params.push(data.name);
+    }
+    if (data.providerId !== undefined) {
+      updates.push('provider_id = ?');
+      params.push(data.providerId);
+    }
+    if (data.sdkSessionId !== undefined) {
+      updates.push('sdk_session_id = ?');
+      params.push(data.sdkSessionId);
+    }
+
+    // Always update timestamp
+    updates.push('updated_at = ?');
+    params.push(Date.now());
+
+    // Add ID as last parameter
+    params.push(id);
+
+    return {
+      sql: `UPDATE sessions SET ${updates.join(', ')} WHERE id = ?`,
+      params
+    };
+  }
+
+  /**
+   * Find all sessions for a specific project
+   */
+  findByProjectId(projectId: string): Session[] {
+    const rows = this.db.prepare(`
+      SELECT * FROM sessions
+      WHERE project_id = ?
+      ORDER BY updated_at DESC
+    `).all(projectId);
+    return rows.map(row => this.mapRow(row));
+  }
+
+  /**
+   * Find session by SDK session ID
+   */
+  findBySdkSessionId(sdkSessionId: string): Session | null {
+    const row = this.db.prepare(`
+      SELECT * FROM sessions
+      WHERE sdk_session_id = ?
+    `).get(sdkSessionId);
+    return row ? this.mapRow(row) : null;
+  }
+}
