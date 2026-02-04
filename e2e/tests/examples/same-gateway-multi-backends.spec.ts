@@ -16,17 +16,31 @@
  * - Possibly different proxy configurations
  */
 
-import { test, expect } from '../../helpers/setup';
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { createBrowser, type BrowserAdapter } from '../../helpers/browser-adapter';
+import { setupCleanDB } from '../../helpers/setup';
 import { registerMode, getMode } from '../../helpers/modes';
 import { gatewayBackendAMode } from '../../fixtures/modes/gateway-backend-a.config';
 import { gatewayBackendBMode } from '../../fixtures/modes/gateway-backend-b.config';
 import { switchToMode, verifyMode } from '../../helpers/connection';
+import { testAllModes } from '../../helpers/test-factory';
 
 // Register both backends (same gateway, different backend IDs)
 registerMode(gatewayBackendAMode);
 registerMode(gatewayBackendBMode);
 
-test.describe('Same Gateway - Multiple Backends', () => {
+let browser: BrowserAdapter;
+
+describe('Same Gateway - Multiple Backends', () => {
+  beforeEach(async () => {
+    await setupCleanDB();
+    browser = await createBrowser();
+  });
+
+  afterEach(async () => {
+    await browser.close();
+  });
+
   test('should show both backends share the same gateway', async () => {
     const backendA = getMode('gateway-backend-a');
     const backendB = getMode('gateway-backend-b');
@@ -54,70 +68,73 @@ test.describe('Same Gateway - Multiple Backends', () => {
     console.log('\n✓ Both backends share the same gateway but have unique identities');
   });
 
-  test('should connect to Backend A through gateway (if configured)', async ({ page }) => {
+  test('should connect to Backend A through gateway (if configured)', async () => {
     const backendA = getMode('gateway-backend-a');
 
     if (!backendA.enabled) {
-      test.skip('Backend A not configured (set GATEWAY_BACKEND_A_ID to enable)');
+      console.log('SKIPPED: Backend A not configured (set GATEWAY_BACKEND_A_ID to enable)');
+      return;
     }
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
 
     // Switch to Backend A
-    await switchToMode(page, backendA);
-    await verifyMode(page, backendA);
+    await switchToMode(browser, backendA);
+    await verifyMode(browser, backendA);
 
     // Test basic functionality
-    const textarea = page.locator('textarea').first();
+    const textarea = browser.locator('textarea').first();
     if (await textarea.isVisible({ timeout: 5000 })) {
       await textarea.fill('Test message on Backend A');
       console.log('✓ Backend A connection successful');
     }
   });
 
-  test('should connect to Backend B through gateway (if configured)', async ({ page }) => {
+  test('should connect to Backend B through gateway (if configured)', async () => {
     const backendB = getMode('gateway-backend-b');
 
     if (!backendB.enabled) {
-      test.skip('Backend B not configured (set GATEWAY_BACKEND_B_ID to enable)');
+      console.log('SKIPPED: Backend B not configured (set GATEWAY_BACKEND_B_ID to enable)');
+      return;
     }
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
 
     // Switch to Backend B
-    await switchToMode(page, backendB);
-    await verifyMode(page, backendB);
+    await switchToMode(browser, backendB);
+    await verifyMode(browser, backendB);
 
     // Test basic functionality
-    const textarea = page.locator('textarea').first();
+    const textarea = browser.locator('textarea').first();
     if (await textarea.isVisible({ timeout: 5000 })) {
       await textarea.fill('Test message on Backend B');
       console.log('✓ Backend B connection successful');
     }
   });
 
-  test('should switch between backends on the same gateway', async ({ page }) => {
+  test('should switch between backends on the same gateway', async () => {
     const backendA = getMode('gateway-backend-a');
     const backendB = getMode('gateway-backend-b');
 
     if (!backendA.enabled || !backendB.enabled) {
-      test.skip('Both backends must be configured for this test');
+      console.log('SKIPPED: Both backends must be configured for this test');
+      return;
     }
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
 
     console.log('Testing backend switching on the same gateway...');
 
     // Connect to Backend A
     console.log('\n1. Connecting to Backend A...');
-    await switchToMode(page, backendA);
-    await verifyMode(page, backendA);
-    await page.waitForTimeout(2000);
+    await switchToMode(browser, backendA);
+    await verifyMode(browser, backendA);
+    await browser.waitForTimeout(2000);
 
-    const textareaA = page.locator('textarea').first();
+    const textareaA = browser.locator('textarea').first();
     if (await textareaA.isVisible({ timeout: 5000 })) {
       await textareaA.fill('Message sent to Backend A');
       console.log('   ✓ Backend A: Message sent');
@@ -125,11 +142,11 @@ test.describe('Same Gateway - Multiple Backends', () => {
 
     // Switch to Backend B (same gateway, different backend)
     console.log('\n2. Switching to Backend B...');
-    await switchToMode(page, backendB);
-    await verifyMode(page, backendB);
-    await page.waitForTimeout(2000);
+    await switchToMode(browser, backendB);
+    await verifyMode(browser, backendB);
+    await browser.waitForTimeout(2000);
 
-    const textareaB = page.locator('textarea').first();
+    const textareaB = browser.locator('textarea').first();
     if (await textareaB.isVisible({ timeout: 5000 })) {
       await textareaB.fill('Message sent to Backend B');
       console.log('   ✓ Backend B: Message sent');
@@ -137,41 +154,42 @@ test.describe('Same Gateway - Multiple Backends', () => {
 
     // Switch back to Backend A
     console.log('\n3. Switching back to Backend A...');
-    await switchToMode(page, backendA);
-    await verifyMode(page, backendA);
-    await page.waitForTimeout(2000);
+    await switchToMode(browser, backendA);
+    await verifyMode(browser, backendA);
+    await browser.waitForTimeout(2000);
 
     console.log('\n✓ Successfully switched between multiple backends on the same gateway');
   });
 
-  test('should isolate data between different backends', async ({ page }) => {
+  test('should isolate data between different backends', async () => {
     const backendA = getMode('gateway-backend-a');
     const backendB = getMode('gateway-backend-b');
 
     if (!backendA.enabled || !backendB.enabled) {
-      test.skip('Both backends must be configured for this test');
+      console.log('SKIPPED: Both backends must be configured for this test');
+      return;
     }
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
 
     // Create unique message on Backend A
     const uniqueMessageA = `Backend A message - ${Date.now()}`;
-    await switchToMode(page, backendA);
-    await page.waitForTimeout(2000);
+    await switchToMode(browser, backendA);
+    await browser.waitForTimeout(2000);
 
-    const textareaA = page.locator('textarea').first();
+    const textareaA = browser.locator('textarea').first();
     if (await textareaA.isVisible({ timeout: 5000 })) {
       await textareaA.fill(uniqueMessageA);
-      await page.waitForTimeout(1000);
+      await browser.waitForTimeout(1000);
     }
 
     // Switch to Backend B
-    await switchToMode(page, backendB);
-    await page.waitForTimeout(2000);
+    await switchToMode(browser, backendB);
+    await browser.waitForTimeout(2000);
 
     // Verify Backend A's message is NOT visible on Backend B
-    const backendBContent = await page.textContent('body');
+    const backendBContent = await browser.textContent('body');
     expect(backendBContent).not.toContain(uniqueMessageA);
 
     console.log('✓ Data properly isolated between backends on the same gateway');
@@ -181,16 +199,15 @@ test.describe('Same Gateway - Multiple Backends', () => {
 /**
  * Use with testAllModes to run tests on all backends
  */
-import { testAllModes } from '../../helpers/test-factory';
 
-testAllModes('should work on all registered backends', async (page, mode) => {
+testAllModes('should work on all registered backends', async (browser, mode) => {
   if (mode.id.startsWith('gateway-backend')) {
     console.log(`\nTesting ${mode.name}:`);
     console.log(`  Gateway: ${mode.gatewayUrl}`);
     console.log(`  Backend ID: ${mode.backendId}`);
 
     // Your test logic here
-    const textarea = page.locator('textarea').first();
+    const textarea = browser.locator('textarea').first();
     if (await textarea.isVisible({ timeout: 5000 })) {
       await textarea.fill(`Test on ${mode.name}`);
       console.log(`  ✓ ${mode.name} test passed`);

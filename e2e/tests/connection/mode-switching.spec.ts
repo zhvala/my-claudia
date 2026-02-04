@@ -1,20 +1,29 @@
-import { test, expect } from '../../helpers/setup';
+import { describe, test, expect, afterEach } from 'vitest';
+import { createBrowser, type BrowserAdapter } from '../../helpers/browser-adapter';
 import { getEnabledModes } from '../../helpers/modes';
 import { switchToMode, verifyMode } from '../../helpers/connection';
 
-test.describe('Mode Switching', () => {
+describe('Mode Switching', () => {
   const modes = getEnabledModes();
+  let browser: BrowserAdapter;
 
-  test('should switch between all available modes', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+  afterEach(async () => {
+    if (browser) {
+      await browser.close();
+    }
+  });
+
+  test('should switch between all available modes', async () => {
+    browser = await createBrowser();
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
+    await browser.waitForTimeout(2000);
 
     for (const mode of modes) {
       console.log(`Switching to ${mode.name}...`);
 
-      await switchToMode(page, mode);
-      await verifyMode(page, mode);
+      await switchToMode(browser, mode);
+      await verifyMode(browser, mode);
 
       console.log(`✓ ${mode.name} working`);
     }
@@ -22,26 +31,22 @@ test.describe('Mode Switching', () => {
     console.log('✓ All mode switches successful');
   });
 
-  test('should maintain server selector after switching', async ({ page }) => {
-    if (modes.length < 2) {
-      test.skip(true, 'Need at least 2 modes to test switching');
-      return;
-    }
-
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+  test.skipIf(modes.length < 2)('should maintain server selector after switching', async () => {
+    browser = await createBrowser();
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
+    await browser.waitForTimeout(2000);
 
     // Switch to first mode
-    await switchToMode(page, modes[0]);
+    await switchToMode(browser, modes[0]);
 
     // Verify server selector shows mode name
-    const serverSelector = page.locator('[data-testid="server-selector"]');
+    const serverSelector = browser.locator('[data-testid="server-selector"]');
     const text1 = await serverSelector.textContent();
     expect(text1).toContain(modes[0].name);
 
     // Switch to second mode
-    await switchToMode(page, modes[1]);
+    await switchToMode(browser, modes[1]);
 
     // Verify server selector shows new mode name
     const text2 = await serverSelector.textContent();

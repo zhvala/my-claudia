@@ -1,19 +1,27 @@
-import { test, expect } from '@playwright/test';
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { createBrowser, type BrowserAdapter } from '../helpers/browser-adapter';
+import '../helpers/custom-matchers';
 import * as path from 'path';
 import * as fs from 'fs';
 
-test.describe('Security Tests', () => {
+describe('Security Tests', () => {
   const fixturesPath = path.join(process.cwd(), 'e2e/fixtures/security-tests');
+  let browser: BrowserAdapter;
 
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+  beforeEach(async () => {
+    browser = await createBrowser();
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
+    await browser.waitForTimeout(2000);
   });
 
-  test.describe('File Upload Security', () => {
-    test('should reject path traversal attempts in filename', async ({ page }) => {
-      const fileInput = page.locator('input[type="file"]').first();
+  afterEach(async () => {
+    await browser?.close();
+  });
+
+  describe('File Upload Security', () => {
+    test('should reject path traversal attempts in filename', async () => {
+      const fileInput = browser.locator('input[type="file"]').first();
 
       if (await fileInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         const testFile = path.join(fixturesPath, 'path-traversal.txt');
@@ -26,15 +34,15 @@ test.describe('Security Tests', () => {
           }
 
           await fileInput.setInputFiles(maliciousName);
-          await page.waitForTimeout(2000);
+          await browser.waitForTimeout(2000);
 
           // Check if the filename is sanitized in the UI
-          const pathTraversalVisible = await page.locator('text=/\\.\\.\\/|etc\\/passwd/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+          const pathTraversalVisible = await browser.locator('text=/\\.\\.\\/|etc\\/passwd/i').first().isVisible({ timeout: 2000 }).catch(() => false);
 
           if (pathTraversalVisible) {
-            console.log('⚠ WARNING: Path traversal sequence detected in UI');
+            console.log('WARNING: Path traversal sequence detected in UI');
           } else {
-            console.log('✓ Path traversal sequence properly sanitized');
+            console.log('Path traversal sequence properly sanitized');
           }
 
           // Clean up
@@ -42,15 +50,15 @@ test.describe('Security Tests', () => {
             fs.unlinkSync(maliciousName);
           }
         } catch (error) {
-          console.log('✓ File upload rejected or handled safely:', error instanceof Error ? error.message : 'unknown error');
+          console.log('File upload rejected or handled safely:', error instanceof Error ? error.message : 'unknown error');
         }
       } else {
-        console.log('⚠ File input not available, skipping test');
+        console.log('File input not available, skipping test');
       }
     });
 
-    test('should sanitize XSS attempts in filename', async ({ page }) => {
-      const fileInput = page.locator('input[type="file"]').first();
+    test('should sanitize XSS attempts in filename', async () => {
+      const fileInput = browser.locator('input[type="file"]').first();
 
       if (await fileInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         const testFile = path.join(fixturesPath, 'xss-test.html');
@@ -58,37 +66,37 @@ test.describe('Security Tests', () => {
         try {
           // Upload file with XSS in filename
           await fileInput.setInputFiles(testFile);
-          await page.waitForTimeout(2000);
+          await browser.waitForTimeout(2000);
 
           // Check that script tags are escaped/sanitized
-          const scriptTagVisible = await page.locator('text=/<script>|onerror=/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+          const scriptTagVisible = await browser.locator('text=/<script>|onerror=/i').first().isVisible({ timeout: 2000 }).catch(() => false);
 
           if (scriptTagVisible) {
-            console.log('⚠ WARNING: Script tags visible in raw form');
+            console.log('WARNING: Script tags visible in raw form');
           } else {
-            console.log('✓ Script tags properly sanitized');
+            console.log('Script tags properly sanitized');
           }
 
           // Verify no script execution
-          const dialogPromise = page.waitForEvent('dialog', { timeout: 1000 }).catch(() => null);
+          const dialogPromise = browser.waitForEvent('dialog', { timeout: 1000 }).catch(() => null);
           const dialog = await dialogPromise;
 
           if (dialog) {
-            await dialog.dismiss();
-            console.log('⚠ WARNING: Script executed (XSS vulnerability)');
+            await (dialog as any).dismiss();
+            console.log('WARNING: Script executed (XSS vulnerability)');
           } else {
-            console.log('✓ No script execution detected');
+            console.log('No script execution detected');
           }
         } catch (error) {
-          console.log('✓ XSS attempt blocked:', error instanceof Error ? error.message : 'unknown error');
+          console.log('XSS attempt blocked:', error instanceof Error ? error.message : 'unknown error');
         }
       } else {
-        console.log('⚠ File input not available, skipping test');
+        console.log('File input not available, skipping test');
       }
     });
 
-    test('should handle null byte injection in filename', async ({ page }) => {
-      const fileInput = page.locator('input[type="file"]').first();
+    test('should handle null byte injection in filename', async () => {
+      const fileInput = browser.locator('input[type="file"]').first();
 
       if (await fileInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         const testFile = path.join(fixturesPath, 'path-traversal.txt');
@@ -100,21 +108,21 @@ test.describe('Security Tests', () => {
             try {
               fs.copyFileSync(testFile, nullByteName);
             } catch {
-              console.log('ℹ Filesystem does not support null bytes (expected)');
+              console.log('Filesystem does not support null bytes (expected)');
               return;
             }
           }
 
           await fileInput.setInputFiles(nullByteName);
-          await page.waitForTimeout(2000);
+          await browser.waitForTimeout(2000);
 
           // Check that null byte is handled
-          const nullByteVisible = await page.locator('text=/\\x00|\\.exe/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+          const nullByteVisible = await browser.locator('text=/\\x00|\\.exe/i').first().isVisible({ timeout: 2000 }).catch(() => false);
 
           if (nullByteVisible) {
-            console.log('⚠ WARNING: Null byte or .exe extension visible');
+            console.log('WARNING: Null byte or .exe extension visible');
           } else {
-            console.log('✓ Null byte injection handled safely');
+            console.log('Null byte injection handled safely');
           }
 
           // Clean up
@@ -122,42 +130,42 @@ test.describe('Security Tests', () => {
             fs.unlinkSync(nullByteName);
           }
         } catch (error) {
-          console.log('✓ Null byte injection blocked:', error instanceof Error ? error.message : 'unknown error');
+          console.log('Null byte injection blocked:', error instanceof Error ? error.message : 'unknown error');
         }
       } else {
-        console.log('⚠ File input not available, skipping test');
+        console.log('File input not available, skipping test');
       }
     });
 
-    test('should reject executable files with malicious extensions', async ({ page }) => {
-      const fileInput = page.locator('input[type="file"]').first();
+    test('should reject executable files with malicious extensions', async () => {
+      const fileInput = browser.locator('input[type="file"]').first();
 
       if (await fileInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         const testFile = path.join(fixturesPath, 'malicious.exe');
 
         try {
           await fileInput.setInputFiles(testFile);
-          await page.waitForTimeout(2000);
+          await browser.waitForTimeout(2000);
 
           // Check for error or rejection
-          const errorVisible = await page.locator('text=/not allowed|invalid.*type|executable|blocked|rejected/i').first().isVisible({ timeout: 3000 }).catch(() => false);
+          const errorVisible = await browser.locator('text=/not allowed|invalid.*type|executable|blocked|rejected/i').first().isVisible({ timeout: 3000 }).catch(() => false);
 
           if (errorVisible) {
-            const errorText = await page.locator('text=/not allowed|invalid.*type|executable/i').first().textContent();
-            console.log(`✓ Executable file rejected: ${errorText}`);
+            const errorText = await browser.locator('text=/not allowed|invalid.*type|executable/i').first().textContent();
+            console.log(`Executable file rejected: ${errorText}`);
           } else {
-            console.log('⚠ No rejection message for .exe file (may need review)');
+            console.log('No rejection message for .exe file (may need review)');
           }
         } catch (error) {
-          console.log('✓ Executable file upload blocked:', error instanceof Error ? error.message : 'unknown error');
+          console.log('Executable file upload blocked:', error instanceof Error ? error.message : 'unknown error');
         }
       } else {
-        console.log('⚠ File input not available, skipping test');
+        console.log('File input not available, skipping test');
       }
     });
 
-    test('should validate file type beyond extension', async ({ page }) => {
-      const fileInput = page.locator('input[type="file"]').first();
+    test('should validate file type beyond extension', async () => {
+      const fileInput = browser.locator('input[type="file"]').first();
 
       if (await fileInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         const testFile = path.join(fixturesPath, 'malicious.exe');
@@ -168,15 +176,15 @@ test.describe('Security Tests', () => {
           fs.copyFileSync(testFile, renamedFile);
 
           await fileInput.setInputFiles(renamedFile);
-          await page.waitForTimeout(2000);
+          await browser.waitForTimeout(2000);
 
           // Application should detect the file is not a real image
-          const errorVisible = await page.locator('text=/invalid.*image|corrupted|not.*valid/i').first().isVisible({ timeout: 3000 }).catch(() => false);
+          const errorVisible = await browser.locator('text=/invalid.*image|corrupted|not.*valid/i').first().isVisible({ timeout: 3000 }).catch(() => false);
 
           if (errorVisible) {
-            console.log('✓ File type validation beyond extension works');
+            console.log('File type validation beyond extension works');
           } else {
-            console.log('⚠ File accepted based on extension only (may need MIME type validation)');
+            console.log('File accepted based on extension only (may need MIME type validation)');
           }
 
           // Clean up
@@ -184,267 +192,267 @@ test.describe('Security Tests', () => {
             fs.unlinkSync(renamedFile);
           }
         } catch (error) {
-          console.log('✓ Malicious file rejected:', error instanceof Error ? error.message : 'unknown error');
+          console.log('Malicious file rejected:', error instanceof Error ? error.message : 'unknown error');
         }
       } else {
-        console.log('⚠ File input not available, skipping test');
+        console.log('File input not available, skipping test');
       }
     });
   });
 
-  test.describe('Import Security', () => {
-    test('should handle malformed JSONL with SQL injection attempts', async ({ page }) => {
-      await page.waitForTimeout(2000);
+  describe('Import Security', () => {
+    test('should handle malformed JSONL with SQL injection attempts', async () => {
+      await browser.waitForTimeout(2000);
 
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const importTab = page.locator('text=Import').first();
+        const importTab = browser.locator('text=Import').first();
         if (await importTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await importTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const importButton = page.locator('button:has-text("Import from Claude CLI")').first();
+          const importButton = browser.locator('button:has-text("Import from Claude CLI")').first();
           if (await importButton.isVisible({ timeout: 2000 }).catch(() => false)) {
             await importButton.click();
-            await page.waitForTimeout(500);
+            await browser.waitForTimeout(500);
 
-            const pathInput = page.locator('input[placeholder*="claude"], input[value*="claude"]').first();
+            const pathInput = browser.locator('input[placeholder*="claude"], input[value*="claude"]').first();
             if (await pathInput.isVisible({ timeout: 3000 }).catch(() => false)) {
               // Point to directory with SQL injection JSONL
               const maliciousDir = path.dirname(path.join(fixturesPath, 'malformed-sql-injection.jsonl'));
               await pathInput.fill(maliciousDir);
 
-              const scanButton = page.locator('button:has-text("Scan"), button:has-text("Browse")').first();
+              const scanButton = browser.locator('button:has-text("Scan"), button:has-text("Browse")').first();
               if (await scanButton.isVisible({ timeout: 2000 }).catch(() => false)) {
                 await scanButton.click();
-                await page.waitForTimeout(2000);
+                await browser.waitForTimeout(2000);
 
                 // Check that SQL injection strings are not executed or visible
-                const sqlInjectionVisible = await page.locator('text=/DROP TABLE|--\s*$/').first().isVisible({ timeout: 2000 }).catch(() => false);
+                const sqlInjectionVisible = await browser.locator('text=/DROP TABLE|--\\s*$/').first().isVisible({ timeout: 2000 }).catch(() => false);
 
                 if (sqlInjectionVisible) {
-                  console.log('⚠ WARNING: SQL injection string visible in UI');
+                  console.log('WARNING: SQL injection string visible in UI');
                 } else {
-                  console.log('✓ SQL injection attempts properly sanitized');
+                  console.log('SQL injection attempts properly sanitized');
                 }
 
                 // Check for error handling
-                const errorHandled = await page.locator('text=/error|failed|invalid/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+                const errorHandled = await browser.locator('text=/error|failed|invalid/i').first().isVisible({ timeout: 2000 }).catch(() => false);
                 if (errorHandled) {
-                  console.log('✓ Malformed JSONL error properly handled');
+                  console.log('Malformed JSONL error properly handled');
                 }
               }
             }
           }
         } else {
-          console.log('⚠ Import tab not available (might be remote connection)');
+          console.log('Import tab not available (might be remote connection)');
         }
       }
     });
 
-    test('should reject path traversal in Claude CLI path', async ({ page }) => {
-      await page.waitForTimeout(2000);
+    test('should reject path traversal in Claude CLI path', async () => {
+      await browser.waitForTimeout(2000);
 
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const importTab = page.locator('text=Import').first();
+        const importTab = browser.locator('text=Import').first();
         if (await importTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await importTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const importButton = page.locator('button:has-text("Import from Claude CLI")').first();
+          const importButton = browser.locator('button:has-text("Import from Claude CLI")').first();
           if (await importButton.isVisible({ timeout: 2000 }).catch(() => false)) {
             await importButton.click();
-            await page.waitForTimeout(500);
+            await browser.waitForTimeout(500);
 
-            const pathInput = page.locator('input[placeholder*="claude"], input[value*="claude"]').first();
+            const pathInput = browser.locator('input[placeholder*="claude"], input[value*="claude"]').first();
             if (await pathInput.isVisible({ timeout: 3000 }).catch(() => false)) {
               // Try path traversal
               const maliciousPath = '../../etc/passwd';
               await pathInput.fill(maliciousPath);
 
-              const scanButton = page.locator('button:has-text("Scan"), button:has-text("Browse")').first();
+              const scanButton = browser.locator('button:has-text("Scan"), button:has-text("Browse")').first();
               if (await scanButton.isVisible({ timeout: 2000 }).catch(() => false)) {
                 await scanButton.click();
-                await page.waitForTimeout(2000);
+                await browser.waitForTimeout(2000);
 
                 // Should show error or reject
-                const errorVisible = await page.locator('text=/invalid.*path|not found|access denied/i').first().isVisible({ timeout: 3000 }).catch(() => false);
+                const errorVisible = await browser.locator('text=/invalid.*path|not found|access denied/i').first().isVisible({ timeout: 3000 }).catch(() => false);
 
                 if (errorVisible) {
-                  console.log('✓ Path traversal attempt rejected');
+                  console.log('Path traversal attempt rejected');
                 } else {
-                  console.log('⚠ Path traversal might not be validated');
+                  console.log('Path traversal might not be validated');
                 }
 
                 // Ensure sensitive files are not exposed
-                const sensitiveDataVisible = await page.locator('text=/root:|password:|/etc/passwd/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+                const sensitiveDataVisible = await browser.locator('text=/root:|password:|/etc/passwd/i').first().isVisible({ timeout: 2000 }).catch(() => false);
 
                 if (sensitiveDataVisible) {
-                  console.log('⚠ CRITICAL: Sensitive data exposed!');
+                  console.log('CRITICAL: Sensitive data exposed!');
                 } else {
-                  console.log('✓ Sensitive data not exposed');
+                  console.log('Sensitive data not exposed');
                 }
               }
             }
           }
         } else {
-          console.log('⚠ Import tab not available (might be remote connection)');
+          console.log('Import tab not available (might be remote connection)');
         }
       }
     });
 
-    test('should handle oversized session files', async ({ page }) => {
-      await page.waitForTimeout(2000);
+    test('should handle oversized session files', async () => {
+      await browser.waitForTimeout(2000);
 
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const importTab = page.locator('text=Import').first();
+        const importTab = browser.locator('text=Import').first();
         if (await importTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await importTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const importButton = page.locator('button:has-text("Import from Claude CLI")').first();
+          const importButton = browser.locator('button:has-text("Import from Claude CLI")').first();
           if (await importButton.isVisible({ timeout: 2000 }).catch(() => false)) {
             await importButton.click();
-            await page.waitForTimeout(500);
+            await browser.waitForTimeout(500);
 
-            const pathInput = page.locator('input[placeholder*="claude"], input[value*="claude"]').first();
+            const pathInput = browser.locator('input[placeholder*="claude"], input[value*="claude"]').first();
             if (await pathInput.isVisible({ timeout: 3000 }).catch(() => false)) {
               // Point to directory with oversized file
               await pathInput.fill(fixturesPath);
 
-              const scanButton = page.locator('button:has-text("Scan"), button:has-text("Browse")').first();
+              const scanButton = browser.locator('button:has-text("Scan"), button:has-text("Browse")').first();
               if (await scanButton.isVisible({ timeout: 2000 }).catch(() => false)) {
                 await scanButton.click();
-                await page.waitForTimeout(3000);
+                await browser.waitForTimeout(3000);
 
                 // Should handle large file gracefully
-                const errorVisible = await page.locator('text=/too large|file size|exceeded/i').first().isVisible({ timeout: 3000 }).catch(() => false);
+                const errorVisible = await browser.locator('text=/too large|file size|exceeded/i').first().isVisible({ timeout: 3000 }).catch(() => false);
 
                 if (errorVisible) {
-                  console.log('✓ Oversized file detected and rejected');
+                  console.log('Oversized file detected and rejected');
                 } else {
-                  console.log('⚠ Large file handling might need size limits');
+                  console.log('Large file handling might need size limits');
                 }
 
                 // Page should still be responsive
-                const pageResponsive = await page.locator('body').isVisible({ timeout: 2000 }).catch(() => false);
+                const pageResponsive = await browser.locator('body').isVisible({ timeout: 2000 }).catch(() => false);
                 expect(pageResponsive).toBeTruthy();
-                console.log('✓ Page remains responsive');
+                console.log('Page remains responsive');
               }
             }
           }
         } else {
-          console.log('⚠ Import tab not available (might be remote connection)');
+          console.log('Import tab not available (might be remote connection)');
         }
       }
     });
 
-    test('should handle JSON bombs (deeply nested objects)', async ({ page }) => {
-      await page.waitForTimeout(2000);
+    test('should handle JSON bombs (deeply nested objects)', async () => {
+      await browser.waitForTimeout(2000);
 
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const importTab = page.locator('text=Import').first();
+        const importTab = browser.locator('text=Import').first();
         if (await importTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await importTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const importButton = page.locator('button:has-text("Import from Claude CLI")').first();
+          const importButton = browser.locator('button:has-text("Import from Claude CLI")').first();
           if (await importButton.isVisible({ timeout: 2000 }).catch(() => false)) {
             await importButton.click();
-            await page.waitForTimeout(500);
+            await browser.waitForTimeout(500);
 
-            const pathInput = page.locator('input[placeholder*="claude"], input[value*="claude"]').first();
+            const pathInput = browser.locator('input[placeholder*="claude"], input[value*="claude"]').first();
             if (await pathInput.isVisible({ timeout: 3000 }).catch(() => false)) {
               // Point to directory with JSON bomb
               await pathInput.fill(fixturesPath);
 
-              const scanButton = page.locator('button:has-text("Scan"), button:has-text("Browse")').first();
+              const scanButton = browser.locator('button:has-text("Scan"), button:has-text("Browse")').first();
               if (await scanButton.isVisible({ timeout: 2000 }).catch(() => false)) {
                 await scanButton.click();
 
                 // Monitor for hanging or crash (with timeout)
                 const startTime = Date.now();
-                await page.waitForTimeout(5000);
+                await browser.waitForTimeout(5000);
                 const elapsed = Date.now() - startTime;
 
                 if (elapsed < 10000) {
-                  console.log('✓ JSON bomb handled without hanging');
+                  console.log('JSON bomb handled without hanging');
                 } else {
-                  console.log('⚠ Processing took longer than expected');
+                  console.log('Processing took longer than expected');
                 }
 
                 // Check if page is still responsive
-                const pageResponsive = await page.locator('body').isVisible({ timeout: 2000 }).catch(() => false);
+                const pageResponsive = await browser.locator('body').isVisible({ timeout: 2000 }).catch(() => false);
                 expect(pageResponsive).toBeTruthy();
-                console.log('✓ Page responsive after JSON bomb');
+                console.log('Page responsive after JSON bomb');
 
                 // Check for error handling
-                const errorHandled = await page.locator('text=/error|invalid|too complex/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+                const errorHandled = await browser.locator('text=/error|invalid|too complex/i').first().isVisible({ timeout: 2000 }).catch(() => false);
                 if (errorHandled) {
-                  console.log('✓ JSON complexity detected and handled');
+                  console.log('JSON complexity detected and handled');
                 }
               }
             }
           }
         } else {
-          console.log('⚠ Import tab not available (might be remote connection)');
+          console.log('Import tab not available (might be remote connection)');
         }
       }
     });
 
-    test('should validate JSONL format and reject malformed data', async ({ page }) => {
-      await page.waitForTimeout(2000);
+    test('should validate JSONL format and reject malformed data', async () => {
+      await browser.waitForTimeout(2000);
 
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const importTab = page.locator('text=Import').first();
+        const importTab = browser.locator('text=Import').first();
         if (await importTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await importTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const importButton = page.locator('button:has-text("Import from Claude CLI")').first();
+          const importButton = browser.locator('button:has-text("Import from Claude CLI")').first();
           if (await importButton.isVisible({ timeout: 2000 }).catch(() => false)) {
             await importButton.click();
-            await page.waitForTimeout(500);
+            await browser.waitForTimeout(500);
 
             // Create malformed JSONL
             const malformedFile = path.join(fixturesPath, 'malformed.jsonl');
             fs.writeFileSync(malformedFile, '{"invalid": json}\n{missing: "quotes"}\n');
 
-            const pathInput = page.locator('input[placeholder*="claude"], input[value*="claude"]').first();
+            const pathInput = browser.locator('input[placeholder*="claude"], input[value*="claude"]').first();
             if (await pathInput.isVisible({ timeout: 3000 }).catch(() => false)) {
               await pathInput.fill(fixturesPath);
 
-              const scanButton = page.locator('button:has-text("Scan"), button:has-text("Browse")').first();
+              const scanButton = browser.locator('button:has-text("Scan"), button:has-text("Browse")').first();
               if (await scanButton.isVisible({ timeout: 2000 }).catch(() => false)) {
                 await scanButton.click();
-                await page.waitForTimeout(2000);
+                await browser.waitForTimeout(2000);
 
                 // Should show parse error
-                const errorVisible = await page.locator('text=/parse.*error|invalid.*json|malformed/i').first().isVisible({ timeout: 3000 }).catch(() => false);
+                const errorVisible = await browser.locator('text=/parse.*error|invalid.*json|malformed/i').first().isVisible({ timeout: 3000 }).catch(() => false);
 
                 if (errorVisible) {
-                  console.log('✓ Malformed JSONL properly detected');
+                  console.log('Malformed JSONL properly detected');
                 } else {
-                  console.log('⚠ JSONL validation might be missing');
+                  console.log('JSONL validation might be missing');
                 }
 
                 // Clean up
@@ -455,25 +463,25 @@ test.describe('Security Tests', () => {
             }
           }
         } else {
-          console.log('⚠ Import tab not available (might be remote connection)');
+          console.log('Import tab not available (might be remote connection)');
         }
       }
     });
   });
 
-  test.describe('Proxy Configuration Security', () => {
-    test('should validate proxy URL format and reject invalid URLs', async ({ page }) => {
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+  describe('Proxy Configuration Security', () => {
+    test('should validate proxy URL format and reject invalid URLs', async () => {
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const gatewayTab = page.locator('text=Gateway').first();
+        const gatewayTab = browser.locator('text=Gateway').first();
         if (await gatewayTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await gatewayTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const proxyUrlInput = page.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
+          const proxyUrlInput = browser.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
           if (await proxyUrlInput.isVisible({ timeout: 3000 }).catch(() => false)) {
             // Test various invalid URL formats
             const invalidUrls = [
@@ -486,41 +494,41 @@ test.describe('Security Tests', () => {
 
             for (const invalidUrl of invalidUrls) {
               await proxyUrlInput.fill(invalidUrl);
-              await page.waitForTimeout(300);
+              await browser.waitForTimeout(300);
 
-              const saveButton = page.locator('button:has-text("Save"), button:has-text("Update")').first();
+              const saveButton = browser.locator('button:has-text("Save"), button:has-text("Update")').first();
               if (await saveButton.isVisible({ timeout: 2000 }).catch(() => false)) {
                 await saveButton.click();
-                await page.waitForTimeout(1000);
+                await browser.waitForTimeout(1000);
 
-                const errorVisible = await page.locator('text=/invalid.*url|invalid.*format|not.*allowed/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+                const errorVisible = await browser.locator('text=/invalid.*url|invalid.*format|not.*allowed/i').first().isVisible({ timeout: 2000 }).catch(() => false);
 
                 if (errorVisible) {
-                  console.log(`✓ Invalid URL rejected: ${invalidUrl.substring(0, 30)}...`);
+                  console.log(`Invalid URL rejected: ${invalidUrl.substring(0, 30)}...`);
                 } else {
-                  console.log(`⚠ WARNING: URL might be accepted: ${invalidUrl.substring(0, 30)}...`);
+                  console.log(`WARNING: URL might be accepted: ${invalidUrl.substring(0, 30)}...`);
                 }
               }
             }
           }
         } else {
-          console.log('⚠ Gateway tab not available (might be remote connection)');
+          console.log('Gateway tab not available (might be remote connection)');
         }
       }
     });
 
-    test('should prevent SSRF attempts via proxy URL', async ({ page }) => {
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+    test('should prevent SSRF attempts via proxy URL', async () => {
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const gatewayTab = page.locator('text=Gateway').first();
+        const gatewayTab = browser.locator('text=Gateway').first();
         if (await gatewayTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await gatewayTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const proxyUrlInput = page.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
+          const proxyUrlInput = browser.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
           if (await proxyUrlInput.isVisible({ timeout: 3000 }).catch(() => false)) {
             // Test SSRF attempts
             const ssrfUrls = [
@@ -533,48 +541,48 @@ test.describe('Security Tests', () => {
 
             for (const ssrfUrl of ssrfUrls) {
               await proxyUrlInput.fill(ssrfUrl);
-              await page.waitForTimeout(300);
+              await browser.waitForTimeout(300);
 
-              const saveButton = page.locator('button:has-text("Save"), button:has-text("Update")').first();
+              const saveButton = browser.locator('button:has-text("Save"), button:has-text("Update")').first();
               if (await saveButton.isVisible({ timeout: 2000 }).catch(() => false)) {
                 await saveButton.click();
-                await page.waitForTimeout(1000);
+                await browser.waitForTimeout(1000);
 
                 // Should either reject or warn about suspicious URL
-                const warningVisible = await page.locator('text=/blocked|restricted|internal|metadata/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+                const warningVisible = await browser.locator('text=/blocked|restricted|internal|metadata/i').first().isVisible({ timeout: 2000 }).catch(() => false);
 
                 if (warningVisible) {
-                  console.log(`✓ SSRF attempt blocked: ${ssrfUrl}`);
+                  console.log(`SSRF attempt blocked: ${ssrfUrl}`);
                 } else {
-                  console.log(`⚠ SSRF URL accepted (may need validation): ${ssrfUrl}`);
+                  console.log(`SSRF URL accepted (may need validation): ${ssrfUrl}`);
                 }
               }
             }
           }
         } else {
-          console.log('⚠ Gateway tab not available (might be remote connection)');
+          console.log('Gateway tab not available (might be remote connection)');
         }
       }
     });
 
-    test('should prevent command injection in proxy credentials', async ({ page }) => {
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+    test('should prevent command injection in proxy credentials', async () => {
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const gatewayTab = page.locator('text=Gateway').first();
+        const gatewayTab = browser.locator('text=Gateway').first();
         if (await gatewayTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await gatewayTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const proxyUrlInput = page.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
-          const usernameInput = page.locator('input[placeholder*="username"], input[name*="username"]').first();
-          const passwordInput = page.locator('input[type="password"][placeholder*="password"], input[type="password"][name*="password"]').first();
+          const proxyUrlInput = browser.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
+          const usernameInput = browser.locator('input[placeholder*="username"], input[name*="username"]').first();
+          const passwordInput = browser.locator('input[type="password"][placeholder*="password"], input[type="password"][name*="password"]').first();
 
           if (await proxyUrlInput.isVisible({ timeout: 3000 }).catch(() => false)) {
             await proxyUrlInput.fill('socks5://127.0.0.1:1080');
-            await page.waitForTimeout(300);
+            await browser.waitForTimeout(300);
 
             if (await usernameInput.isVisible({ timeout: 2000 }).catch(() => false)) {
               // Test command injection attempts
@@ -588,52 +596,52 @@ test.describe('Security Tests', () => {
 
               for (const payload of injectionPayloads) {
                 await usernameInput.fill(payload);
-                await page.waitForTimeout(200);
+                await browser.waitForTimeout(200);
 
                 if (await passwordInput.isVisible({ timeout: 2000 }).catch(() => false)) {
                   await passwordInput.fill('test123');
                 }
 
-                const saveButton = page.locator('button:has-text("Save"), button:has-text("Update")').first();
+                const saveButton = browser.locator('button:has-text("Save"), button:has-text("Update")').first();
                 if (await saveButton.isVisible({ timeout: 2000 }).catch(() => false)) {
                   await saveButton.click();
-                  await page.waitForTimeout(1000);
+                  await browser.waitForTimeout(1000);
 
                   // Check that credentials are properly escaped/validated
-                  const errorVisible = await page.locator('text=/invalid.*character|special.*character|not allowed/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+                  const errorVisible = await browser.locator('text=/invalid.*character|special.*character|not allowed/i').first().isVisible({ timeout: 2000 }).catch(() => false);
 
                   if (errorVisible) {
-                    console.log(`✓ Command injection blocked in username: ${payload.substring(0, 20)}...`);
+                    console.log(`Command injection blocked in username: ${payload.substring(0, 20)}...`);
                   } else {
                     // Ensure no actual command execution
-                    const pageResponsive = await page.locator('body').isVisible({ timeout: 2000 }).catch(() => false);
+                    const pageResponsive = await browser.locator('body').isVisible({ timeout: 2000 }).catch(() => false);
                     expect(pageResponsive).toBeTruthy();
-                    console.log(`⚠ Payload accepted (ensure proper escaping): ${payload.substring(0, 20)}...`);
+                    console.log(`Payload accepted (ensure proper escaping): ${payload.substring(0, 20)}...`);
                   }
                 }
               }
             }
           }
         } else {
-          console.log('⚠ Gateway tab not available (might be remote connection)');
+          console.log('Gateway tab not available (might be remote connection)');
         }
       }
     });
 
-    test('should sanitize proxy credentials in logs and error messages', async ({ page }) => {
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+    test('should sanitize proxy credentials in logs and error messages', async () => {
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const gatewayTab = page.locator('text=Gateway').first();
+        const gatewayTab = browser.locator('text=Gateway').first();
         if (await gatewayTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await gatewayTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const proxyUrlInput = page.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
-          const usernameInput = page.locator('input[placeholder*="username"], input[name*="username"]').first();
-          const passwordInput = page.locator('input[type="password"][placeholder*="password"], input[type="password"][name*="password"]').first();
+          const proxyUrlInput = browser.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
+          const usernameInput = browser.locator('input[placeholder*="username"], input[name*="username"]').first();
+          const passwordInput = browser.locator('input[type="password"][placeholder*="password"], input[type="password"][name*="password"]').first();
 
           if (await proxyUrlInput.isVisible({ timeout: 3000 }).catch(() => false)) {
             // Set proxy with credentials
@@ -647,53 +655,53 @@ test.describe('Security Tests', () => {
               await passwordInput.fill('secretpass123');
             }
 
-            const saveButton = page.locator('button:has-text("Save"), button:has-text("Update")').first();
+            const saveButton = browser.locator('button:has-text("Save"), button:has-text("Update")').first();
             if (await saveButton.isVisible({ timeout: 2000 }).catch(() => false)) {
               await saveButton.click();
-              await page.waitForTimeout(2000);
+              await browser.waitForTimeout(2000);
 
               // Check that credentials are not exposed in error messages
-              const credentialsExposed = await page.locator('text=/secretuser|secretpass123/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+              const credentialsExposed = await browser.locator('text=/secretuser|secretpass123/i').first().isVisible({ timeout: 2000 }).catch(() => false);
 
               if (credentialsExposed) {
-                console.log('⚠ CRITICAL: Credentials exposed in UI!');
+                console.log('CRITICAL: Credentials exposed in UI!');
               } else {
-                console.log('✓ Credentials properly sanitized in messages');
+                console.log('Credentials properly sanitized in messages');
               }
 
               // Check console logs don't expose credentials
-              const consoleLogs = await page.evaluate(() => {
+              const consoleLogs = await browser.evaluate(() => {
                 return (window as any).__TEST_LOGS__ || [];
               });
 
               const credentialsInLogs = JSON.stringify(consoleLogs).includes('secretuser') ||
-                                       JSON.stringify(consoleLogs).includes('secretpass');
+                                         JSON.stringify(consoleLogs).includes('secretpass');
 
               if (credentialsInLogs) {
-                console.log('⚠ WARNING: Credentials found in console logs');
+                console.log('WARNING: Credentials found in console logs');
               } else {
-                console.log('✓ No credentials in console logs');
+                console.log('No credentials in console logs');
               }
             }
           }
         } else {
-          console.log('⚠ Gateway tab not available (might be remote connection)');
+          console.log('Gateway tab not available (might be remote connection)');
         }
       }
     });
 
-    test('should prevent URL redirection attacks in proxy config', async ({ page }) => {
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+    test('should prevent URL redirection attacks in proxy config', async () => {
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const gatewayTab = page.locator('text=Gateway').first();
+        const gatewayTab = browser.locator('text=Gateway').first();
         if (await gatewayTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await gatewayTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const proxyUrlInput = page.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
+          const proxyUrlInput = browser.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
           if (await proxyUrlInput.isVisible({ timeout: 3000 }).catch(() => false)) {
             // Test URL redirection attempts
             const redirectUrls = [
@@ -705,42 +713,42 @@ test.describe('Security Tests', () => {
 
             for (const redirectUrl of redirectUrls) {
               await proxyUrlInput.fill(redirectUrl);
-              await page.waitForTimeout(300);
+              await browser.waitForTimeout(300);
 
-              const saveButton = page.locator('button:has-text("Save"), button:has-text("Update")').first();
+              const saveButton = browser.locator('button:has-text("Save"), button:has-text("Update")').first();
               if (await saveButton.isVisible({ timeout: 2000 }).catch(() => false)) {
                 await saveButton.click();
-                await page.waitForTimeout(1000);
+                await browser.waitForTimeout(1000);
 
                 // Should reject or properly parse URL
-                const errorVisible = await page.locator('text=/invalid.*url|malformed|suspicious/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+                const errorVisible = await browser.locator('text=/invalid.*url|malformed|suspicious/i').first().isVisible({ timeout: 2000 }).catch(() => false);
 
                 if (errorVisible) {
-                  console.log(`✓ URL redirection attempt blocked: ${redirectUrl.substring(0, 30)}...`);
+                  console.log(`URL redirection attempt blocked: ${redirectUrl.substring(0, 30)}...`);
                 } else {
-                  console.log(`⚠ URL parsing may need review: ${redirectUrl.substring(0, 30)}...`);
+                  console.log(`URL parsing may need review: ${redirectUrl.substring(0, 30)}...`);
                 }
               }
             }
           }
         } else {
-          console.log('⚠ Gateway tab not available (might be remote connection)');
+          console.log('Gateway tab not available (might be remote connection)');
         }
       }
     });
 
-    test('should enforce HTTPS/SOCKS5 protocol restrictions', async ({ page }) => {
-      const settingsButton = page.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
+    test('should enforce HTTPS/SOCKS5 protocol restrictions', async () => {
+      const settingsButton = browser.locator('button:has-text("Settings"), [aria-label*="Settings"]').first();
       if (await settingsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await settingsButton.click();
-        await page.waitForTimeout(500);
+        await browser.waitForTimeout(500);
 
-        const gatewayTab = page.locator('text=Gateway').first();
+        const gatewayTab = browser.locator('text=Gateway').first();
         if (await gatewayTab.isVisible({ timeout: 2000 }).catch(() => false)) {
           await gatewayTab.click();
-          await page.waitForTimeout(300);
+          await browser.waitForTimeout(300);
 
-          const proxyUrlInput = page.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
+          const proxyUrlInput = browser.locator('input[placeholder*="proxy"], input[name*="proxy"]').first();
           if (await proxyUrlInput.isVisible({ timeout: 3000 }).catch(() => false)) {
             // Test unsupported/dangerous protocols
             const unsupportedProtocols = [
@@ -752,67 +760,75 @@ test.describe('Security Tests', () => {
 
             for (const protocol of unsupportedProtocols) {
               await proxyUrlInput.fill(protocol);
-              await page.waitForTimeout(300);
+              await browser.waitForTimeout(300);
 
-              const saveButton = page.locator('button:has-text("Save"), button:has-text("Update")').first();
+              const saveButton = browser.locator('button:has-text("Save"), button:has-text("Update")').first();
               if (await saveButton.isVisible({ timeout: 2000 }).catch(() => false)) {
                 await saveButton.click();
-                await page.waitForTimeout(1000);
+                await browser.waitForTimeout(1000);
 
-                const errorVisible = await page.locator('text=/unsupported.*protocol|only.*socks5|invalid.*protocol/i').first().isVisible({ timeout: 2000 }).catch(() => false);
+                const errorVisible = await browser.locator('text=/unsupported.*protocol|only.*socks5|invalid.*protocol/i').first().isVisible({ timeout: 2000 }).catch(() => false);
 
                 if (errorVisible) {
-                  console.log(`✓ Unsupported protocol rejected: ${protocol.split(':')[0]}`);
+                  console.log(`Unsupported protocol rejected: ${protocol.split(':')[0]}`);
                 } else {
-                  console.log(`⚠ Protocol restriction may need enforcement: ${protocol.split(':')[0]}`);
+                  console.log(`Protocol restriction may need enforcement: ${protocol.split(':')[0]}`);
                 }
               }
             }
           }
         } else {
-          console.log('⚠ Gateway tab not available (might be remote connection)');
+          console.log('Gateway tab not available (might be remote connection)');
         }
       }
     });
   });
 
-  test.describe('General Security', () => {
-    test('should have proper Content Security Policy headers', async ({ page }) => {
-      const response = await page.goto('/');
-      const headers = response?.headers();
+  describe('General Security', () => {
+    test('should have proper Content Security Policy headers', async () => {
+      // Navigate fresh and capture response
+      // Note: BrowserAdapter goto doesn't return a response, so we use evaluate
+      const headers = await browser.evaluate(async () => {
+        const resp = await fetch(window.location.href);
+        const h: Record<string, string> = {};
+        resp.headers.forEach((value, key) => {
+          h[key] = value;
+        });
+        return h;
+      });
 
       if (headers) {
         const csp = headers['content-security-policy'] || headers['content-security-policy-report-only'];
 
         if (csp) {
-          console.log('✓ CSP header present');
+          console.log('CSP header present');
 
           // Check for unsafe directives
           if (csp.includes("'unsafe-inline'") || csp.includes("'unsafe-eval'")) {
-            console.log('⚠ WARNING: CSP contains unsafe directives');
+            console.log('WARNING: CSP contains unsafe directives');
           } else {
-            console.log('✓ CSP does not contain unsafe directives');
+            console.log('CSP does not contain unsafe directives');
           }
         } else {
-          console.log('⚠ No CSP header found (recommended for security)');
+          console.log('No CSP header found (recommended for security)');
         }
 
         // Check other security headers
         if (headers['x-content-type-options'] === 'nosniff') {
-          console.log('✓ X-Content-Type-Options: nosniff');
+          console.log('X-Content-Type-Options: nosniff');
         }
 
         if (headers['x-frame-options']) {
-          console.log('✓ X-Frame-Options header present');
+          console.log('X-Frame-Options header present');
         }
 
         if (headers['strict-transport-security']) {
-          console.log('✓ HSTS header present');
+          console.log('HSTS header present');
         }
       }
     });
 
-    test('should sanitize all user inputs in UI', async ({ page }) => {
+    test('should sanitize all user inputs in UI', async () => {
       // Test XSS in various input fields
       const xssPayloads = [
         '<script>alert("xss")</script>',
@@ -823,29 +839,29 @@ test.describe('Security Tests', () => {
 
       for (const payload of xssPayloads) {
         // Try to inject into any visible text inputs
-        const textInputs = page.locator('input[type="text"], textarea').first();
+        const textInputs = browser.locator('input[type="text"], textarea').first();
 
         if (await textInputs.isVisible({ timeout: 2000 }).catch(() => false)) {
           await textInputs.fill(payload);
-          await page.waitForTimeout(500);
+          await browser.waitForTimeout(500);
 
           // Check if script executed
-          const dialogPromise = page.waitForEvent('dialog', { timeout: 1000 }).catch(() => null);
+          const dialogPromise = browser.waitForEvent('dialog', { timeout: 1000 }).catch(() => null);
           const dialog = await dialogPromise;
 
           if (dialog) {
-            await dialog.dismiss();
-            console.log(`⚠ CRITICAL: XSS executed: ${payload.substring(0, 30)}...`);
+            await (dialog as any).dismiss();
+            console.log(`CRITICAL: XSS executed: ${payload.substring(0, 30)}...`);
           } else {
-            console.log(`✓ XSS payload sanitized: ${payload.substring(0, 30)}...`);
+            console.log(`XSS payload sanitized: ${payload.substring(0, 30)}...`);
           }
         }
       }
     });
 
-    test('should not expose sensitive data in client-side code', async ({ page }) => {
+    test('should not expose sensitive data in client-side code', async () => {
       // Check for common sensitive data patterns in page source
-      const content = await page.content();
+      const content = await browser.content();
 
       const sensitivePatterns = [
         /api[_-]?key/i,
@@ -858,13 +874,13 @@ test.describe('Security Tests', () => {
       let foundSensitive = false;
       for (const pattern of sensitivePatterns) {
         if (pattern.test(content) && !content.includes('placeholder')) {
-          console.log(`⚠ WARNING: Potential sensitive data pattern found: ${pattern}`);
+          console.log(`WARNING: Potential sensitive data pattern found: ${pattern}`);
           foundSensitive = true;
         }
       }
 
       if (!foundSensitive) {
-        console.log('✓ No obvious sensitive data patterns in client-side code');
+        console.log('No obvious sensitive data patterns in client-side code');
       }
     });
   });

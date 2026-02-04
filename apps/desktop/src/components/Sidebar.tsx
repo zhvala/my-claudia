@@ -32,6 +32,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [showNewProjectForm, setShowNewProjectForm] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectRootPath, setNewProjectRootPath] = useState('');
   const [creatingProject, setCreatingProject] = useState(false);
   const [creatingSessionForProject, setCreatingSessionForProject] = useState<string | null>(null);
   const [newSessionName, setNewSessionName] = useState('');
@@ -62,10 +63,12 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
     try {
       const project = await api.createProject({
         name: newProjectName.trim(),
-        type: 'code'
+        type: 'code',
+        rootPath: newProjectRootPath.trim() || undefined
       });
       addProject(project);
       setNewProjectName('');
+      setNewProjectRootPath('');
       setShowNewProjectForm(false);
       // Auto-expand and select the new project
       setExpandedProjects((prev) => new Set(prev).add(project.id));
@@ -193,15 +196,30 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateProject();
                     if (e.key === 'Escape') {
                       setShowNewProjectForm(false);
                       setNewProjectName('');
+                      setNewProjectRootPath('');
                     }
                   }}
                   placeholder="Project name"
                   className="w-full px-2 py-1 bg-secondary border border-border rounded text-sm focus:outline-none focus:border-primary"
                   autoFocus
+                />
+                <input
+                  type="text"
+                  value={newProjectRootPath}
+                  onChange={(e) => setNewProjectRootPath(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateProject();
+                    if (e.key === 'Escape') {
+                      setShowNewProjectForm(false);
+                      setNewProjectName('');
+                      setNewProjectRootPath('');
+                    }
+                  }}
+                  placeholder="Working directory (e.g. /path/to/project)"
+                  className="w-full px-2 py-1 mt-1 bg-secondary border border-border rounded text-sm focus:outline-none focus:border-primary"
                 />
                 <div className="flex gap-1 mt-1">
                   <button
@@ -215,6 +233,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
                     onClick={() => {
                       setShowNewProjectForm(false);
                       setNewProjectName('');
+                      setNewProjectRootPath('');
                     }}
                     className="flex-1 px-2 py-1 bg-secondary hover:bg-secondary/80 rounded text-xs"
                   >
@@ -567,15 +586,30 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateProject();
                 if (e.key === 'Escape') {
                   setShowNewProjectForm(false);
                   setNewProjectName('');
+                  setNewProjectRootPath('');
                 }
               }}
               placeholder="Project name"
               className="w-full px-2 py-1 bg-secondary border border-border rounded text-sm focus:outline-none focus:border-primary"
               autoFocus
+            />
+            <input
+              type="text"
+              value={newProjectRootPath}
+              onChange={(e) => setNewProjectRootPath(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateProject();
+                if (e.key === 'Escape') {
+                  setShowNewProjectForm(false);
+                  setNewProjectName('');
+                  setNewProjectRootPath('');
+                }
+              }}
+              placeholder="Working directory (e.g. /path/to/project)"
+              className="w-full px-2 py-1 mt-1 bg-secondary border border-border rounded text-sm focus:outline-none focus:border-primary"
             />
             <div className="flex gap-1 mt-1">
               <button
@@ -589,6 +623,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
                 onClick={() => {
                   setShowNewProjectForm(false);
                   setNewProjectName('');
+                  setNewProjectRootPath('');
                 }}
                 className="flex-1 px-2 py-1 bg-secondary hover:bg-secondary/80 rounded text-xs"
               >

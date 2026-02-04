@@ -100,39 +100,6 @@ export function createFilesRoutes(): Router {
     }
   });
 
-  // GET /api/files/:fileId
-  // Retrieve a file by ID
-  router.get('/:fileId', (req: Request, res: Response) => {
-    try {
-      const { fileId } = req.params;
-
-      const file = fileStore.getFile(fileId);
-      if (!file) {
-        res.status(404).json({
-          success: false,
-          error: { code: 'NOT_FOUND', message: 'File not found' }
-        });
-        return;
-      }
-
-      res.json({
-        success: true,
-        data: {
-          fileId: file.id,
-          name: file.name,
-          mimeType: file.mimeType,
-          data: file.data // base64
-        }
-      });
-    } catch (error) {
-      console.error('[Files] Error retrieving file:', error);
-      res.status(500).json({
-        success: false,
-        error: { code: 'RETRIEVAL_ERROR', message: 'Failed to retrieve file' }
-      });
-    }
-  });
-
   // GET /api/files/list
   // Query params: projectRoot, relativePath, query, maxResults
   router.get('/list', (req: Request, res: Response) => {
@@ -327,6 +294,40 @@ export function createFilesRoutes(): Router {
       res.status(500).json({
         success: false,
         error: { code: 'SERVER_ERROR', message: 'Failed to read file' }
+      });
+    }
+  });
+
+  // GET /api/files/:fileId
+  // Retrieve a file by ID
+  // NOTE: This must be defined AFTER /list and /content to avoid catching those paths
+  router.get('/:fileId', (req: Request, res: Response) => {
+    try {
+      const { fileId } = req.params;
+
+      const file = fileStore.getFile(fileId);
+      if (!file) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'File not found' }
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          fileId: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          data: file.data // base64
+        }
+      });
+    } catch (error) {
+      console.error('[Files] Error retrieving file:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'RETRIEVAL_ERROR', message: 'Failed to retrieve file' }
       });
     }
   });

@@ -1,39 +1,44 @@
-import { test, expect } from '@playwright/test';
+import { describe, test, expect, afterEach } from 'vitest';
+import { createBrowser, type BrowserAdapter } from '../helpers/browser-adapter';
 
-test.describe('Example Test - Verify Setup', () => {
-  test('should load the application', async ({ page }) => {
-    await page.goto('/');
+describe('Example Test - Verify Setup', () => {
+  let browser: BrowserAdapter;
 
-    // Wait for the app to load
-    await page.waitForLoadState('networkidle');
-
-    // Basic assertion to verify the page loaded
-    await expect(page).toHaveTitle(/My Claudia|Claudia/i);
+  afterEach(async () => {
+    await browser?.close();
   });
 
-  test('should have a body element', async ({ page }) => {
-    // Navigate to app
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+  test('should load the application', async () => {
+    browser = await createBrowser();
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
 
-    // Verify we can interact with the page
-    const bodyText = await page.textContent('body');
+    const title = await browser.title();
+    expect(title).toMatch(/My Claudia|Claudia/i);
+  });
+
+  test('should have a body element', async () => {
+    browser = await createBrowser();
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
+
+    const bodyText = await browser.textContent('body');
     expect(bodyText).toBeTruthy();
   });
 
-  test('should load without many console errors', async ({ page }) => {
+  test('should load without many console errors', async () => {
+    browser = await createBrowser();
+
     const errors: string[] = [];
-    page.on('console', msg => {
+    browser.on('console', (msg: any) => {
       if (msg.type() === 'error') {
         errors.push(msg.text());
       }
     });
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
 
-    // We allow some errors since the app might have expected errors
-    // This test just verifies the page loads
     expect(errors.length).toBeLessThan(10);
   });
 });

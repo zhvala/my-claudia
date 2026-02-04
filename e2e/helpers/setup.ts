@@ -1,4 +1,9 @@
-import { test as base } from '@playwright/test';
+/**
+ * Test setup utilities for E2E tests
+ *
+ * Replaces Playwright's test.extend<{...}> fixture system with
+ * standalone setup functions compatible with Vitest beforeEach/afterEach.
+ */
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as os from 'os';
@@ -7,119 +12,122 @@ import * as fs from 'fs';
 const DB_PATH = path.join(os.homedir(), '.my-claudia', 'data.db');
 const AUTH_PATH = path.join(os.homedir(), '.my-claudia', 'auth.json');
 
-interface ApiClient {
+// ─── API Client Interfaces ──────────────────────────────────
+
+export interface ApiClient {
   fetch(path: string, options?: RequestInit): Promise<Response>;
 }
 
-interface GatewayApiClient extends ApiClient {
+export interface GatewayApiClient extends ApiClient {
   backendId: string;
 }
 
-export const test = base.extend<{
-  cleanDB: void;
-  testProject: string;
-  apiKey: string;
-  apiClient: ApiClient;
-  gatewayApiClient: GatewayApiClient;
-}>({
-  // Clean database before each test
-  cleanDB: async ({}, use) => {
-    try {
-      const db = new Database(DB_PATH);
+// ─── Setup Functions ─────────────────────────────────────────
 
-      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>;
-      const tableNames = tables.map(t => t.name);
-
-      if (tableNames.includes('messages')) {
-        db.exec(`DELETE FROM messages WHERE session_id LIKE 'test-%'`);
-      }
-      if (tableNames.includes('sessions')) {
-        db.exec(`DELETE FROM sessions WHERE id LIKE 'test-%'`);
-      }
-      if (tableNames.includes('projects')) {
-        db.exec(`DELETE FROM projects WHERE id LIKE 'test-%'`);
-      }
-
-      db.close();
-    } catch (error) {
-      console.warn('Database cleanup skipped:', error);
-    }
-
-    await use();
-  },
-
-  // Create test project
-  testProject: async ({ cleanDB }, use) => {
+/**
+ * Clean test data from SQLite database.
+ * Deletes records with 'test-' prefix from messages, sessions, projects.
+ */
+export async function setupCleanDB(): Promise<void> {
+  try {
     const db = new Database(DB_PATH);
 
-    const projectId = 'test-project-' + Date.now();
-    db.prepare(`
-      INSERT INTO projects (id, name, root_path, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(projectId, 'Test Project', '/test/path', Date.now(), Date.now());
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>;
+    const tableNames = tables.map(t => t.name);
+
+    if (tableNames.includes('messages')) {
+      db.exec(`DELETE FROM messages WHERE session_id LIKE 'test-%'`);
+    }
+    if (tableNames.includes('sessions')) {
+      db.exec(`DELETE FROM sessions WHERE id LIKE 'test-%'`);
+    }
+    if (tableNames.includes('projects')) {
+      db.exec(`DELETE FROM projects WHERE id LIKE 'test-%'`);
+    }
 
     db.close();
+  } catch (error) {
+    console.warn('Database cleanup skipped:', error);
+  }
+}
 
-    await use(projectId);
-  },
+/**
+ * Create an isolated test project in the database.
+ * Returns the project ID.
+ */
+export async function setupTestProject(): Promise<string> {
+  const db = new Database(DB_PATH);
+  const projectId = 'test-project-' + Date.now();
 
-  // Read API key from auth.json
-  apiKey: async ({}, use) => {
-    const config = JSON.parse(fs.readFileSync(AUTH_PATH, 'utf-8'));
-    await use(config.apiKey as string);
-  },
+  db.prepare(`
+    INSERT INTO projects (id, name, root_path, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(projectId, 'Test Project', '/test/path', Date.now(), Date.now());
 
-  // REST client for direct backend (localhost:3100)
-  apiClient: async ({ apiKey }, use) => {
-    const client: ApiClient = {
-      async fetch(apiPath: string, options?: RequestInit) {
-        return globalThis.fetch(`http://localhost:3100${apiPath}`, {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-            ...options?.headers,
-          },
-        });
-      },
-    };
-    await use(client);
-  },
+  db.close();
+  return projectId;
+}
 
-  // REST client through gateway proxy (localhost:3200)
-  gatewayApiClient: async ({ apiKey }, use) => {
-    // Poll until backend registers with gateway
-    let backendId: string | null = null;
-    for (let i = 0; i < 30; i++) {
-      try {
-        const resp = await globalThis.fetch('http://localhost:3100/api/server/gateway/status');
-        const data = await resp.json();
-        if (data.data?.backendId) {
-          backendId = data.data.backendId;
-          break;
-        }
-      } catch {
-        // Gateway not ready yet
+/**
+ * Read API key from auth.json
+ */
+export function readApiKey(): string {
+  const config = JSON.parse(fs.readFileSync(AUTH_PATH, 'utf-8'));
+  return config.apiKey as string;
+}
+
+/**
+ * Create a REST client for the backend server (localhost:3100)
+ */
+export function createApiClient(apiKey: string): ApiClient {
+  return {
+    async fetch(apiPath: string, options?: RequestInit) {
+      return globalThis.fetch(`http://localhost:3100${apiPath}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          ...options?.headers,
+        },
+      });
+    },
+  };
+}
+
+/**
+ * Create a REST client through the gateway proxy (localhost:3200).
+ * Polls until the backend registers with the gateway.
+ */
+export async function createGatewayApiClient(apiKey: string): Promise<GatewayApiClient> {
+  let backendId: string | null = null;
+
+  for (let i = 0; i < 30; i++) {
+    try {
+      const resp = await globalThis.fetch('http://localhost:3100/api/server/gateway/status');
+      const data = await resp.json();
+      if (data.data?.backendId) {
+        backendId = data.data.backendId;
+        break;
       }
-      await new Promise(r => setTimeout(r, 1000));
+    } catch {
+      // Gateway not ready yet
     }
-    if (!backendId) throw new Error('Gateway backend not registered after 30s');
+    await new Promise(r => setTimeout(r, 1000));
+  }
 
-    const client: GatewayApiClient = {
-      backendId,
-      async fetch(apiPath: string, options?: RequestInit) {
-        return globalThis.fetch(`http://localhost:3200/api/proxy/${backendId}${apiPath}`, {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer test-secret-my-claudia-2026:${apiKey}`,
-            ...options?.headers,
-          },
-        });
-      },
-    };
-    await use(client);
-  },
-});
+  if (!backendId) throw new Error('Gateway backend not registered after 30s');
 
-export { expect } from '@playwright/test';
+  return {
+    backendId,
+    async fetch(apiPath: string, options?: RequestInit) {
+      return globalThis.fetch(`http://localhost:3200/api/proxy/${backendId}${apiPath}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer test-secret-my-claudia-2026:${apiKey}`,
+          ...options?.headers,
+        },
+      });
+    },
+  };
+}

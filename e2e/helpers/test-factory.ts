@@ -1,19 +1,20 @@
-import { test as base, expect } from './setup';
+/**
+ * Parameterized test factory for multi-mode testing
+ *
+ * Replaces Playwright's test-factory with Vitest-compatible implementation.
+ */
+import { test } from 'vitest';
 import { getEnabledModes, type ModeConfig } from './modes';
 import { switchToMode, verifyMode, ensureActiveSession } from './connection';
-import type { Page } from '@playwright/test';
+import { BrowserAdapter, createBrowser } from './browser-adapter';
 
 /**
  * Wait for the app to be fully loaded and ready
- * Based on the pattern from http-migration.spec.ts
  */
-async function waitForAppReady(page: Page) {
-  await page.goto('/');
-  await page.waitForLoadState('networkidle');
-
-  // Simple wait for connection - no need to verify "Connected" status
-  // since the default Local Server auto-connects
-  await page.waitForTimeout(500);
+async function waitForAppReady(browser: BrowserAdapter) {
+  await browser.goto('/');
+  await browser.waitForLoadState('networkidle');
+  await browser.waitForTimeout(500);
 }
 
 /**
@@ -21,24 +22,22 @@ async function waitForAppReady(page: Page) {
  */
 export function testAllModes(
   description: string,
-  testFn: (page: Page, mode: ModeConfig) => Promise<void>
+  testFn: (browser: BrowserAdapter, mode: ModeConfig) => Promise<void>
 ) {
   const enabledModes = getEnabledModes();
 
   for (const mode of enabledModes) {
-    base(`${description} [${mode.name}]`, async ({ page }) => {
-      // Wait for app to be ready
-      await waitForAppReady(page);
-
-      // Switch to this mode
-      await switchToMode(page, mode);
-      await verifyMode(page, mode);
-
-      // Ensure a session is selected
-      await ensureActiveSession(page);
-
-      // Run the actual test
-      await testFn(page, mode);
+    test(`${description} [${mode.name}]`, async () => {
+      const browser = await createBrowser();
+      try {
+        await waitForAppReady(browser);
+        await switchToMode(browser, mode);
+        await verifyMode(browser, mode);
+        await ensureActiveSession(browser);
+        await testFn(browser, mode);
+      } finally {
+        await browser.close();
+      }
     });
   }
 }
@@ -49,24 +48,22 @@ export function testAllModes(
 export function testModes(
   modeIds: string[],
   description: string,
-  testFn: (page: Page, mode: ModeConfig) => Promise<void>
+  testFn: (browser: BrowserAdapter, mode: ModeConfig) => Promise<void>
 ) {
   const enabledModes = getEnabledModes().filter(m => modeIds.includes(m.id));
 
   for (const mode of enabledModes) {
-    base(`${description} [${mode.name}]`, async ({ page }) => {
-      // Wait for app to be ready
-      await waitForAppReady(page);
-
-      // Switch to this mode
-      await switchToMode(page, mode);
-      await verifyMode(page, mode);
-
-      // Ensure a session is selected
-      await ensureActiveSession(page);
-
-      // Run the actual test
-      await testFn(page, mode);
+    test(`${description} [${mode.name}]`, async () => {
+      const browser = await createBrowser();
+      try {
+        await waitForAppReady(browser);
+        await switchToMode(browser, mode);
+        await verifyMode(browser, mode);
+        await ensureActiveSession(browser);
+        await testFn(browser, mode);
+      } finally {
+        await browser.close();
+      }
     });
   }
 }

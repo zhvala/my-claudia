@@ -13,17 +13,15 @@
     "clean": "pnpm -r run clean && rm -rf node_modules",
     "test": "pnpm -r run test",
     "test:unit": "pnpm -r run test",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:workflows": "playwright test e2e/tests/user-workflows.spec.ts",
-    "test:e2e:performance": "playwright test e2e/tests/performance.spec.ts",
-    "test:e2e:local": "TEST_MODES=local playwright test",
-    "test:e2e:remote": "TEST_MODES=remote playwright test",
-    "test:e2e:gateway": "TEST_MODES=gateway playwright test",
-    "test:e2e:modes": "playwright test e2e/tests/connection/",
-    "test:e2e:shared": "playwright test e2e/tests/shared/",
+    "test:e2e": "vitest run --config e2e/vitest.config.e2e.ts",
+    "test:e2e:ui": "vitest --config e2e/vitest.config.e2e.ts --ui",
+    "test:e2e:workflows": "vitest run --config e2e/vitest.config.e2e.ts e2e/tests/user-workflows.spec.ts",
+    "test:e2e:performance": "vitest run --config e2e/vitest.config.e2e.ts e2e/tests/performance.spec.ts",
+    "test:e2e:local": "TEST_MODES=local vitest run --config e2e/vitest.config.e2e.ts",
+    "test:e2e:remote": "TEST_MODES=remote vitest run --config e2e/vitest.config.e2e.ts",
+    "test:e2e:gateway": "TEST_MODES=gateway vitest run --config e2e/vitest.config.e2e.ts",
+    "test:e2e:modes": "vitest run --config e2e/vitest.config.e2e.ts e2e/tests/connection/",
+    "test:e2e:shared": "vitest run --config e2e/vitest.config.e2e.ts e2e/tests/shared/",
     "fixtures:generate": "node e2e/fixtures/performance-data/generate-fixtures.js",
     "test:desktop": "pnpm --filter @my-claudia/desktop run test",
     "test:server": "pnpm --filter @my-claudia/server run test"
@@ -34,9 +32,12 @@
   },
   "packageManager": "pnpm@9.15.0",
   "devDependencies": {
-    "@playwright/test": "^1.58.1",
+    "@browserbasehq/stagehand": "^3.0.8",
     "better-sqlite3": "^11.0.0",
+    "playwright-core": "^1.58.1",
     "png-to-ico": "^3.0.1",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "vitest": "^4.0.18",
+    "zod": "^3.23.8"
   }
 }

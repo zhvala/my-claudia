@@ -4,9 +4,9 @@
  * 这个测试文件演示了 Gateway 如何区分和路由到不同的 Backend
  */
 
-import { test, expect } from '../../helpers/setup';
+import { describe, test, expect } from 'vitest';
 
-test.describe('Gateway Backend 路由演示', () => {
+describe('Gateway Backend 路由演示', () => {
   test('演示 HTTP API 路由机制', async () => {
     console.log('\n=== HTTP API 路由演示 ===\n');
 

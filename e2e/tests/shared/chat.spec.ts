@@ -1,38 +1,38 @@
-import { expect } from '../../helpers/setup';
+import { expect } from 'vitest';
 import { testAllModes } from '../../helpers/test-factory';
 
-testAllModes('should send and receive chat message', async (page, mode) => {
+testAllModes('should send and receive chat message', async (browser, mode) => {
   // Session is already ensured by testAllModes
 
   // Send a message
-  const textarea = page.locator('textarea').first();
+  const textarea = browser.locator('textarea').first();
   await textarea.fill('Hello, this is a test message');
-  await page.click('[data-testid="send-button"]');
+  await browser.click('[data-testid="send-button"]');
 
   // Wait for response
-  await page.waitForSelector('[data-role="assistant"]', { timeout: 15000 });
+  await browser.waitForSelector('[data-role="assistant"]', { timeout: 15000 });
 
   // Verify message appears
-  const messages = page.locator('[data-role="assistant"]');
+  const messages = browser.locator('[data-role="assistant"]');
   const count = await messages.count();
   expect(count).toBeGreaterThan(0);
 
   console.log(`✓ Chat working in ${mode.name}`);
 });
 
-testAllModes('should stream response deltas', async (page, mode) => {
-  const textarea = page.locator('textarea').first();
+testAllModes('should stream response deltas', async (browser, mode) => {
+  const textarea = browser.locator('textarea').first();
   await textarea.fill('Count from 1 to 5');
-  await page.click('[data-testid="send-button"]');
+  await browser.click('[data-testid="send-button"]');
 
   // Watch for streaming (content should update multiple times)
-  const assistantMsg = page.locator('[data-role="assistant"]').last();
+  const assistantMsg = browser.locator('[data-role="assistant"]').last();
 
   let previousText = '';
   let updateCount = 0;
 
   for (let i = 0; i < 10; i++) {
-    await page.waitForTimeout(500);
+    await browser.waitForTimeout(500);
     const currentText = await assistantMsg.textContent().catch(() => '') || '';
 
     if (currentText !== previousText && currentText.length > previousText.length) {

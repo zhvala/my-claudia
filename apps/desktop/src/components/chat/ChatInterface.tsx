@@ -137,23 +137,34 @@ export function ChatInterface({ sessionId }: ChatInterfaceProps) {
     const providerId = currentSession?.providerId || currentProject?.providerId;
     const projectRoot = currentProject?.rootPath;
 
-    if (!isConnected || !providerId) {
+    if (!isConnected) {
       return;
     }
 
-    // Request commands via HTTP
-    api.getProviderCommands(providerId, projectRoot || undefined)
-      .then(commands => {
-        useProjectStore.getState().setProviderCommands(providerId, commands);
-      })
-      .catch(err => {
-        console.error('Failed to load provider commands:', err);
-      });
+    if (providerId) {
+      // Load commands for the specific provider
+      api.getProviderCommands(providerId, projectRoot || undefined)
+        .then(commands => {
+          useProjectStore.getState().setProviderCommands(providerId, commands);
+        })
+        .catch(err => {
+          console.error('Failed to load provider commands:', err);
+        });
+    } else {
+      // No provider configured — load default commands by type
+      api.getProviderTypeCommands('claude', projectRoot || undefined)
+        .then(commands => {
+          useProjectStore.getState().setProviderCommands('_default', commands);
+        })
+        .catch(err => {
+          console.error('Failed to load default commands:', err);
+        });
+    }
   }, [currentSession?.providerId, currentProject?.providerId, currentProject?.rootPath, isConnected]);
 
-  // Get commands for current provider
+  // Get commands for current provider (fallback to _default)
   const providerId = currentSession?.providerId || currentProject?.providerId;
-  const commands = providerId ? (providerCommands[providerId] || []) : [];
+  const commands = providerCommands[providerId || '_default'] || [];
 
   // Scroll to bottom when new messages arrive (but not when loading history)
   useEffect(() => {

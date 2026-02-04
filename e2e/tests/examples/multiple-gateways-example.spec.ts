@@ -5,18 +5,32 @@
  * in the same test suite.
  */
 
-import { test, expect } from '../../helpers/setup';
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { createBrowser, type BrowserAdapter } from '../../helpers/browser-adapter';
+import { setupCleanDB } from '../../helpers/setup';
 import { registerMode, getMode, getEnabledModes } from '../../helpers/modes';
 import { gateway1Mode } from '../../fixtures/modes/gateway1.config';
 import { gateway2Mode } from '../../fixtures/modes/gateway2.config';
 import { switchToMode } from '../../helpers/connection';
+import { testAllModes } from '../../helpers/test-factory';
 
 // Register additional gateway backends
 // This only needs to be done once, typically in a setup file
 registerMode(gateway1Mode);
 registerMode(gateway2Mode);
 
-test.describe('Multiple Gateway Backends', () => {
+let browser: BrowserAdapter;
+
+describe('Multiple Gateway Backends', () => {
+  beforeEach(async () => {
+    await setupCleanDB();
+    browser = await createBrowser();
+  });
+
+  afterEach(async () => {
+    await browser.close();
+  });
+
   test('should list all available gateway backends', async () => {
     const allModes = getEnabledModes();
 
@@ -28,81 +42,84 @@ test.describe('Multiple Gateway Backends', () => {
     // You should see: local, gateway, gateway1 (if configured), gateway2 (if configured)
   });
 
-  test('should connect to Gateway Backend 1 (if configured)', async ({ page }) => {
+  test('should connect to Gateway Backend 1 (if configured)', async () => {
     const gateway1 = getMode('gateway1');
 
     if (!gateway1.enabled) {
-      test.skip('Gateway1 not configured (set GATEWAY1_SECRET to enable)');
+      console.log('SKIPPED: Gateway1 not configured (set GATEWAY1_SECRET to enable)');
+      return;
     }
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
 
     // Switch to Gateway Backend 1
-    await switchToMode(page, gateway1);
+    await switchToMode(browser, gateway1);
 
     // Test basic functionality
-    const textarea = page.locator('textarea').first();
+    const textarea = browser.locator('textarea').first();
     await textarea.fill('Test message on Gateway 1');
 
     console.log('✓ Gateway Backend 1 connection successful');
   });
 
-  test('should connect to Gateway Backend 2 (if configured)', async ({ page }) => {
+  test('should connect to Gateway Backend 2 (if configured)', async () => {
     const gateway2 = getMode('gateway2');
 
     if (!gateway2.enabled) {
-      test.skip('Gateway2 not configured (set GATEWAY2_SECRET to enable)');
+      console.log('SKIPPED: Gateway2 not configured (set GATEWAY2_SECRET to enable)');
+      return;
     }
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
 
     // Switch to Gateway Backend 2
-    await switchToMode(page, gateway2);
+    await switchToMode(browser, gateway2);
 
     // Test basic functionality
-    const textarea = page.locator('textarea').first();
+    const textarea = browser.locator('textarea').first();
     await textarea.fill('Test message on Gateway 2');
 
     console.log('✓ Gateway Backend 2 connection successful');
   });
 
-  test('should switch between multiple gateways', async ({ page }) => {
+  test('should switch between multiple gateways', async () => {
     const gateway1 = getMode('gateway1');
     const gateway2 = getMode('gateway2');
 
     if (!gateway1.enabled || !gateway2.enabled) {
-      test.skip('Both gateways must be configured for this test');
+      console.log('SKIPPED: Both gateways must be configured for this test');
+      return;
     }
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
 
     // Switch to Gateway 1
     console.log('Switching to Gateway 1...');
-    await switchToMode(page, gateway1);
-    await page.waitForTimeout(2000);
+    await switchToMode(browser, gateway1);
+    await browser.waitForTimeout(2000);
 
     // Send a message
-    let textarea = page.locator('textarea').first();
+    let textarea = browser.locator('textarea').first();
     await textarea.fill('Message on Gateway 1');
     console.log('✓ Gateway 1 working');
 
     // Switch to Gateway 2
     console.log('Switching to Gateway 2...');
-    await switchToMode(page, gateway2);
-    await page.waitForTimeout(2000);
+    await switchToMode(browser, gateway2);
+    await browser.waitForTimeout(2000);
 
     // Send another message
-    textarea = page.locator('textarea').first();
+    textarea = browser.locator('textarea').first();
     await textarea.fill('Message on Gateway 2');
     console.log('✓ Gateway 2 working');
 
     // Switch back to Gateway 1
     console.log('Switching back to Gateway 1...');
-    await switchToMode(page, gateway1);
-    await page.waitForTimeout(2000);
+    await switchToMode(browser, gateway1);
+    await browser.waitForTimeout(2000);
 
     console.log('✓ Successfully switched between multiple gateways');
   });
@@ -111,15 +128,14 @@ test.describe('Multiple Gateway Backends', () => {
 /**
  * You can also use testAllModes() with multiple gateways:
  */
-import { testAllModes } from '../../helpers/test-factory';
 
 // This will automatically run on all enabled modes, including gateway1 and gateway2
-testAllModes('should work on all gateways', async (page, mode) => {
+testAllModes('should work on all gateways', async (browser, mode) => {
   if (mode.id.startsWith('gateway')) {
     console.log(`Testing on ${mode.name} (${mode.id})`);
 
     // Your gateway-specific test logic here
-    const textarea = page.locator('textarea').first();
+    const textarea = browser.locator('textarea').first();
     await textarea.fill(`Test on ${mode.name}`);
 
     console.log(`✓ ${mode.name} test passed`);

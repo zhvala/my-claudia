@@ -1,14 +1,24 @@
-import { test, expect } from '../../helpers/setup';
+import { describe, test, expect, afterEach } from 'vitest';
+import { createBrowser, type BrowserAdapter } from '../../helpers/browser-adapter';
 
 /**
  * Minimal test - just navigate and check the page
  */
-test('minimal page load', async ({ page }) => {
-  await page.goto('/');
-  await page.screenshot({ path: 'test-minimal-screenshot.png' });
+describe('Minimal', () => {
+  let browser: BrowserAdapter;
 
-  const title = await page.title();
-  console.log('Page title:', title);
+  afterEach(async () => {
+    await browser?.close();
+  });
 
-  expect(title).toContain('Claudia');
+  test('minimal page load', async () => {
+    browser = await createBrowser();
+    await browser.goto('/');
+    await browser.screenshot({ path: 'test-minimal-screenshot.png' });
+
+    const title = await browser.title();
+    console.log('Page title:', title);
+
+    expect(title).toContain('Claudia');
+  });
 });

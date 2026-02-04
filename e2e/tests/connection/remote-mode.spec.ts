@@ -1,22 +1,27 @@
-import { test, expect } from '../../helpers/setup';
+import { describe, test, expect, afterEach } from 'vitest';
+import { createBrowser, type BrowserAdapter } from '../../helpers/browser-adapter';
 import { getMode } from '../../helpers/modes';
 import { switchToMode } from '../../helpers/connection';
 
-test.describe('Remote IP Mode Specific Features', () => {
+describe('Remote IP Mode Specific Features', () => {
   const remoteMode = getMode('remote');
+  let browser: BrowserAdapter;
 
-  test.skip(!remoteMode.enabled, 'Remote mode not configured');
-
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-    await switchToMode(page, remoteMode);
+  afterEach(async () => {
+    if (browser) {
+      await browser.close();
+    }
   });
 
-  test('should require valid API key', async ({ page }) => {
+  test.skipIf(!remoteMode.enabled)('should require valid API key', async () => {
+    browser = await createBrowser();
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
+    await browser.waitForTimeout(2000);
+    await switchToMode(browser, remoteMode);
+
     // The server selector should show the remote mode name
-    const serverSelector = page.locator('[data-testid="server-selector"]');
+    const serverSelector = browser.locator('[data-testid="server-selector"]');
     await expect(serverSelector).toBeVisible({ timeout: 5000 });
     const buttonText = await serverSelector.textContent();
     expect(buttonText).toContain(remoteMode.name);
@@ -24,29 +29,35 @@ test.describe('Remote IP Mode Specific Features', () => {
     console.log('✓ Remote connection with API key successful');
   });
 
-  test('should reject invalid API key', async ({ page }) => {
+  test.skipIf(!remoteMode.enabled)('should reject invalid API key', async () => {
+    browser = await createBrowser();
+    await browser.goto('/');
+    await browser.waitForLoadState('networkidle');
+    await browser.waitForTimeout(2000);
+    await switchToMode(browser, remoteMode);
+
     // Open server selector
-    await page.click('[data-testid="server-selector"]');
-    await page.waitForTimeout(500);
+    await browser.click('[data-testid="server-selector"]');
+    await browser.waitForTimeout(500);
 
     // Open the server menu first (three-dot button)
-    const menuBtn = page.locator('[data-testid="server-menu-btn"]').first();
+    const menuBtn = browser.locator('[data-testid="server-menu-btn"]').first();
     if (await menuBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await menuBtn.click();
-      await page.waitForTimeout(300);
+      await browser.waitForTimeout(300);
 
       // Click Edit
-      const editBtn = page.locator('[data-testid="edit-server-btn"]').first();
+      const editBtn = browser.locator('[data-testid="edit-server-btn"]').first();
       if (await editBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
         await editBtn.click();
-        await page.waitForTimeout(300);
+        await browser.waitForTimeout(300);
 
         // Check if API key input is visible (hidden for local-like addresses)
-        const apiKeyInput = page.locator('[data-testid="api-key-input"]');
+        const apiKeyInput = browser.locator('[data-testid="api-key-input"]');
         if (await apiKeyInput.isVisible({ timeout: 2000 }).catch(() => false)) {
           await apiKeyInput.fill('invalid-key-12345');
-          await page.click('[data-testid="save-server-btn"]');
-          await page.waitForTimeout(3000);
+          await browser.click('[data-testid="save-server-btn"]');
+          await browser.waitForTimeout(3000);
 
           console.log('✓ Invalid API key handling tested');
         } else {
