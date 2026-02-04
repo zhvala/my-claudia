@@ -112,6 +112,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
+                data-testid={`${tab.id}-tab`}
                 className={`flex-shrink-0 px-3 py-2 rounded text-sm flex items-center gap-2 transition-colors ${
                   activeTab === tab.id
                     ? 'bg-primary text-primary-foreground'

@@ -54,7 +54,7 @@ export const test = base.extend<{
 
     const projectId = 'test-project-' + Date.now();
     db.prepare(`
-      INSERT INTO projects (id, name, path, created_at, updated_at)
+      INSERT INTO projects (id, name, root_path, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?)
     `).run(projectId, 'Test Project', '/test/path', Date.now(), Date.now());
 
@@ -112,7 +112,7 @@ export const test = base.extend<{
           ...options,
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer test-gateway-secret:${apiKey}`,
+            'Authorization': `Bearer test-secret-my-claudia-2026:${apiKey}`,
             ...options?.headers,
           },
         });

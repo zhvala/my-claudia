@@ -8,18 +8,15 @@ test.describe('Basic Framework Test', () => {
   test('should load app and connect to local server', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
-
-    // Wait for connection
-    await page.waitForFunction(() => {
-      const el = document.querySelector('[class*="server"]');
-      return el?.textContent?.includes('Connected') || document.body.textContent?.includes('Connected');
-    }, { timeout: 15000 }).catch(() => {});
-
     await page.waitForTimeout(2000);
 
     // Verify we can see the main UI elements
     const bodyText = await page.textContent('body');
     expect(bodyText).toBeTruthy();
+
+    // Verify server selector is present
+    const serverSelector = page.locator('[data-testid="server-selector"]');
+    await expect(serverSelector).toBeVisible({ timeout: 10000 });
 
     console.log('✓ App loaded successfully');
   });
@@ -30,7 +27,7 @@ test.describe('Basic Framework Test', () => {
     await page.waitForTimeout(2000);
 
     // Check for server selector
-    const serverSelector = page.locator('[class*="server"]').first();
+    const serverSelector = page.locator('[data-testid="server-selector"]');
     await expect(serverSelector).toBeVisible({ timeout: 10000 });
 
     console.log('✓ Server selector is visible');

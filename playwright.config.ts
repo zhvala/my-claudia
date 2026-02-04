@@ -10,6 +10,7 @@ export default defineConfig({
     ['html'],
     ['list']
   ],
+  timeout: 60000,
   use: {
     baseURL: 'http://localhost:1420',
     trace: 'on-first-retry',
@@ -18,13 +19,13 @@ export default defineConfig({
   // Start servers before tests (order: gateway → backend → desktop)
   webServer: [
     {
-      command: 'cd gateway && GATEWAY_SECRET=test-gateway-secret pnpm run dev',
+      command: 'cd gateway && GATEWAY_SECRET=test-secret-my-claudia-2026 pnpm run dev',
       port: 3200,
       timeout: 120000,
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: 'cd server && GATEWAY_URL=ws://localhost:3200 GATEWAY_SECRET=test-gateway-secret GATEWAY_NAME=TestBackend pnpm run dev',
+      command: 'cd server && GATEWAY_URL=ws://localhost:3200 GATEWAY_SECRET=test-secret-my-claudia-2026 GATEWAY_NAME=TestBackend pnpm run dev',
       port: 3100,
       timeout: 120000,
       reuseExistingServer: !process.env.CI,

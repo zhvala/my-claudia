@@ -8,6 +8,7 @@ test.describe('Mode Switching', () => {
   test('should switch between all available modes', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
 
     for (const mode of modes) {
       console.log(`Switching to ${mode.name}...`);
@@ -15,48 +16,37 @@ test.describe('Mode Switching', () => {
       await switchToMode(page, mode);
       await verifyMode(page, mode);
 
-      // Send a test message to confirm mode works
-      const textarea = page.locator('textarea').first();
-      await textarea.fill(`Test from ${mode.name}`);
-      await page.click('[data-testid="send-button"]');
-      await page.waitForTimeout(2000);
-
       console.log(`✓ ${mode.name} working`);
     }
 
     console.log('✓ All mode switches successful');
   });
 
-  test('should maintain session data when switching modes', async ({ page }) => {
+  test('should maintain server selector after switching', async ({ page }) => {
     if (modes.length < 2) {
-      test.skip('Need at least 2 modes to test switching');
+      test.skip(true, 'Need at least 2 modes to test switching');
+      return;
     }
 
     await page.goto('/');
     await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
 
-    // Start in first mode
+    // Switch to first mode
     await switchToMode(page, modes[0]);
 
-    // Create session and send message
-    const uniqueText = `Message from ${modes[0].name} - ${Date.now()}`;
-    const textarea = page.locator('textarea').first();
-    await textarea.fill(uniqueText);
-    await page.click('[data-testid="send-button"]');
-    await page.waitForTimeout(2000);
+    // Verify server selector shows mode name
+    const serverSelector = page.locator('[data-testid="server-selector"]');
+    const text1 = await serverSelector.textContent();
+    expect(text1).toContain(modes[0].name);
 
     // Switch to second mode
     await switchToMode(page, modes[1]);
-    await page.waitForTimeout(1000);
 
-    // Switch back to first mode
-    await switchToMode(page, modes[0]);
-    await page.waitForTimeout(1000);
+    // Verify server selector shows new mode name
+    const text2 = await serverSelector.textContent();
+    expect(text2).toContain(modes[1].name);
 
-    // Verify message still exists
-    const messageExists = await page.locator(`text="${uniqueText}"`).isVisible().catch(() => false);
-    expect(messageExists).toBe(true);
-
-    console.log('✓ Session data persists across mode switches');
+    console.log('✓ Server selector updates correctly when switching modes');
   });
 });

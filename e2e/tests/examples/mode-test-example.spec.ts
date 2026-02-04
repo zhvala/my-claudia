@@ -16,7 +16,7 @@ testAllModes('can access main UI elements', async (page, mode) => {
   // - Mode is verified
 
   // Your test logic here - it will run once per enabled mode
-  const serverSelector = page.locator('[class*="server"]').first();
+  const serverSelector = page.locator('[data-testid="server-selector"]').first();
   await expect(serverSelector).toBeVisible();
 
   console.log(`✓ UI accessible in ${mode.name}`);

@@ -722,6 +722,7 @@ export function MessageInput({
             disabled={disabled || (!value.trim() && attachments.length === 0)}
             className="p-2.5 bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed rounded-lg transition-colors"
             title="Send message (Enter)"
+            data-testid="send-button"
           >
             <svg
               className="w-5 h-5"

@@ -54,7 +54,7 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
       <div className="fixed inset-0 bg-black/70 z-50" />
 
       {/* Modal */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] bg-gray-800 rounded-lg shadow-2xl z-50 overflow-hidden">
+      <div data-testid="permission-dialog" className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] bg-gray-800 rounded-lg shadow-2xl z-50 overflow-hidden">
         {/* Timeout progress bar */}
         <div className="h-1 bg-gray-700">
           <div

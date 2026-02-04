@@ -297,6 +297,7 @@ export function ServerGatewayConfig() {
                 onChange={(e) => setProxyUrl(e.target.value)}
                 placeholder="socks5://127.0.0.1:1080"
                 disabled={!enabled}
+                data-testid="proxy-url-input"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                          bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                          placeholder-gray-400 dark:placeholder-gray-500
@@ -320,6 +321,7 @@ export function ServerGatewayConfig() {
                     onChange={(e) => setProxyUsername(e.target.value)}
                     placeholder="Optional"
                     disabled={!enabled}
+                    data-testid="proxy-username-input"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                              bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                              placeholder-gray-400 dark:placeholder-gray-500
@@ -338,6 +340,7 @@ export function ServerGatewayConfig() {
                     onChange={(e) => setProxyPassword(e.target.value)}
                     placeholder={config?.proxyPassword ? '********' : 'Optional'}
                     disabled={!enabled}
+                    data-testid="proxy-password-input"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                              bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                              placeholder-gray-400 dark:placeholder-gray-500
@@ -359,6 +362,7 @@ export function ServerGatewayConfig() {
         <button
           onClick={handleSave}
           disabled={saving}
+          data-testid="save-gateway-config"
           className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg
                    font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >

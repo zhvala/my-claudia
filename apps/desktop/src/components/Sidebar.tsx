@@ -305,11 +305,11 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
 
                     {/* Sessions */}
                     {expandedProjects.has(project.id) && (
-                      <ul className="ml-4 mt-1 space-y-1">
+                      <ul className="ml-4 mt-1 space-y-1" data-testid="session-list">
                         {sessions
                           .filter((s) => s.projectId === project.id)
                           .map((session) => (
-                            <li key={session.id} className="relative group">
+                            <li key={session.id} className="relative group" data-testid="session-item">
                               <div className="flex items-center">
                                 <button
                                   onClick={() => {
@@ -399,6 +399,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
                             <button
                               onClick={() => setCreatingSessionForProject(project.id)}
                               disabled={!isConnected}
+                              data-testid="new-session-btn"
                               className="w-full text-left px-2 py-1 rounded text-sm text-muted-foreground hover:bg-secondary hover:text-foreground flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                               title={!isConnected ? "Connect to server first" : "New Session"}
                             >
@@ -431,6 +432,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
           <div className="border-t border-border p-2">
             <button
               onClick={() => setShowSettings(true)}
+              data-testid="settings-button"
               className="w-full text-left px-2 py-1.5 rounded text-sm text-muted-foreground hover:bg-secondary hover:text-foreground flex items-center gap-2"
             >
               <svg
@@ -677,11 +679,11 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
 
                 {/* Sessions */}
                 {expandedProjects.has(project.id) && (
-                  <ul className="ml-4 mt-1 space-y-1">
+                  <ul className="ml-4 mt-1 space-y-1" data-testid="session-list">
                     {sessions
                       .filter((s) => s.projectId === project.id)
                       .map((session) => (
-                        <li key={session.id} className="relative group">
+                        <li key={session.id} className="relative group" data-testid="session-item">
                           <div className="flex items-center">
                             <button
                               onClick={() => {
@@ -771,6 +773,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
                         <button
                           onClick={() => setCreatingSessionForProject(project.id)}
                           disabled={!isConnected}
+                          data-testid="new-session-btn"
                           className="w-full text-left px-2 py-1 rounded text-sm text-muted-foreground hover:bg-secondary hover:text-foreground flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                           title={!isConnected ? "Connect to server first" : "New Session"}
                         >
@@ -803,6 +806,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, isOpen, onClose }: Side
       <div className="border-t border-border p-2">
         <button
           onClick={() => setShowSettings(true)}
+          data-testid="settings-button"
           className="w-full text-left px-2 py-1.5 rounded text-sm text-muted-foreground hover:bg-secondary hover:text-foreground flex items-center gap-2"
         >
           <svg

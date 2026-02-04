@@ -197,6 +197,7 @@ function MessageItem({ message }: { message: MessageWithToolCalls }) {
 
   return (
     <div
+      data-role={message.role}
       className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} ${
         isSystem ? 'opacity-60' : ''
       }`}

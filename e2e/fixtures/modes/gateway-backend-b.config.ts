@@ -18,7 +18,7 @@ export const gatewayBackendBMode: ModeConfig = {
   // Same gateway server for both backends
   serverAddress: 'localhost:3200',
   gatewayUrl: 'ws://localhost:3200',
-  gatewaySecret: process.env.GATEWAY_SECRET || 'test-gateway-secret',  // Same gateway secret
+  gatewaySecret: process.env.GATEWAY_SECRET || 'test-secret-my-claudia-2026',  // Same gateway secret
 
   // Different backend configuration
   backendId: process.env.GATEWAY_BACKEND_B_ID || '',  // Unique backend ID

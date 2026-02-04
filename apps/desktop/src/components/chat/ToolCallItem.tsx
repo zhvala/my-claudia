@@ -63,6 +63,7 @@ export function ToolCallItem({ toolCall }: ToolCallItemProps) {
 
   return (
     <div
+      data-testid="tool-use"
       className={`my-2 rounded-lg border ${
         status === 'running'
           ? 'border-blue-500/30 bg-blue-500/5'
@@ -87,7 +88,7 @@ export function ToolCallItem({ toolCall }: ToolCallItemProps) {
 
         {/* Tool icon and name */}
         <span className="text-sm">{icon}</span>
-        <span className="text-sm font-medium text-foreground">{toolName}</span>
+        <span className="text-sm font-medium text-foreground" data-testid="tool-name">{toolName}</span>
 
         {/* Summary */}
         <span className="flex-1 text-sm text-muted-foreground truncate ml-2">
@@ -118,6 +119,7 @@ export function ToolCallItem({ toolCall }: ToolCallItemProps) {
                 {isError ? 'Error:' : 'Result:'}
               </div>
               <pre
+                data-testid="tool-result"
                 className={`text-xs rounded p-2 overflow-x-auto ${
                   isError
                     ? 'bg-destructive/20 text-destructive'

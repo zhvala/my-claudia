@@ -1,6 +1,6 @@
 import { test as base, expect } from './setup';
 import { getEnabledModes, type ModeConfig } from './modes';
-import { switchToMode, verifyMode } from './connection';
+import { switchToMode, verifyMode, ensureActiveSession } from './connection';
 import type { Page } from '@playwright/test';
 
 /**
@@ -34,6 +34,9 @@ export function testAllModes(
       await switchToMode(page, mode);
       await verifyMode(page, mode);
 
+      // Ensure a session is selected
+      await ensureActiveSession(page);
+
       // Run the actual test
       await testFn(page, mode);
     });
@@ -44,7 +47,7 @@ export function testAllModes(
  * Create parameterized tests for specific modes only
  */
 export function testModes(
-  modeIds: Array<'local' | 'remote' | 'gateway'>,
+  modeIds: string[],
   description: string,
   testFn: (page: Page, mode: ModeConfig) => Promise<void>
 ) {
@@ -58,6 +61,9 @@ export function testModes(
       // Switch to this mode
       await switchToMode(page, mode);
       await verifyMode(page, mode);
+
+      // Ensure a session is selected
+      await ensureActiveSession(page);
 
       // Run the actual test
       await testFn(page, mode);

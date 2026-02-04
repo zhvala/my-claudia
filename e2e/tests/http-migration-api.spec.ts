@@ -69,7 +69,11 @@ test.describe('Backend API - Direct', () => {
       expect(resp.status).toBe(200);
       const body = await resp.json();
       expect(body.success).toBe(true);
-      expect(body.data.name).toBe('Updated Name');
+      // PUT returns {success: true} without data - verify via GET
+      const getResp = await apiClient.fetch(`/api/projects`);
+      const getBody = await getResp.json();
+      const updated = getBody.data.find((p: any) => p.id === id);
+      expect(updated?.name).toBe('Updated Name');
 
       // Cleanup
       await apiClient.fetch(`/api/projects/${id}`, { method: 'DELETE' });
@@ -139,7 +143,8 @@ test.describe('Backend API - Direct', () => {
       expect(resp.status).toBe(200);
       const body = await resp.json();
       expect(body.success).toBe(true);
-      expect(Array.isArray(body.data)).toBe(true);
+      // Messages endpoint returns {data: {messages: [], pagination: {}}}
+      expect(Array.isArray(body.data.messages)).toBe(true);
 
       // Cleanup
       await apiClient.fetch(`/api/sessions/${sess.data.id}`, { method: 'DELETE' });
@@ -195,7 +200,11 @@ test.describe('Backend API - Direct', () => {
       expect(resp.status).toBe(200);
       const body = await resp.json();
       expect(body.success).toBe(true);
-      expect(body.data.name).toBe('Updated Server');
+      // PUT returns {success: true} without data - verify via GET
+      const getResp = await apiClient.fetch('/api/servers');
+      const getBody = await getResp.json();
+      const updated = getBody.data.find((s: any) => s.id === id);
+      expect(updated?.name).toBe('Updated Server');
 
       // Cleanup
       await apiClient.fetch(`/api/servers/${id}`, { method: 'DELETE' });
@@ -261,7 +270,11 @@ test.describe('Gateway Proxy API', () => {
     expect(resp.status).toBe(200);
     const body = await resp.json();
     expect(body.success).toBe(true);
-    expect(body.data.name).toBe('GW Updated');
+    // PUT returns {success: true} without data - verify via GET
+    const getResp = await gatewayApiClient.fetch('/api/projects');
+    const getBody = await getResp.json();
+    const updated = getBody.data.find((p: any) => p.id === id);
+    expect(updated?.name).toBe('GW Updated');
 
     // Cleanup
     await gatewayApiClient.fetch(`/api/projects/${id}`, { method: 'DELETE' });
@@ -291,7 +304,7 @@ test.describe('Gateway Proxy API', () => {
     const resp = await fetch(
       `http://localhost:3200/api/proxy/${gatewayApiClient.backendId}/api/projects`,
       {
-        headers: { 'Authorization': 'Bearer test-gateway-secret:invalid-api-key' },
+        headers: { 'Authorization': 'Bearer test-secret-my-claudia-2026:invalid-api-key' },
       }
     );
     // Backend should reject the invalid API key (401 proxied back)
@@ -300,7 +313,7 @@ test.describe('Gateway Proxy API', () => {
 
   test('502 when non-existent backendId', async ({ apiKey }) => {
     const resp = await fetch('http://localhost:3200/api/proxy/non-existent-backend/api/projects', {
-      headers: { 'Authorization': `Bearer test-gateway-secret:${apiKey}` },
+      headers: { 'Authorization': `Bearer test-secret-my-claudia-2026:${apiKey}` },
     });
     expect(resp.status).toBe(502);
   });
@@ -312,7 +325,7 @@ test.describe('Gateway Proxy API', () => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer test-gateway-secret:${apiKey}`,
+          'Authorization': `Bearer test-secret-my-claudia-2026:${apiKey}`,
         },
       }
     );

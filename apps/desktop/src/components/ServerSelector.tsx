@@ -216,6 +216,7 @@ export function ServerSelector() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary hover:bg-muted transition-colors"
+        data-testid="server-selector"
       >
         <span className={`w-2 h-2 rounded-full ${getStatusColor()}`} />
         <span className="text-sm truncate max-w-[150px]">
@@ -243,7 +244,7 @@ export function ServerSelector() {
           <div className="px-3 py-2 border-b border-border">
             <div className="flex items-center gap-2 text-sm">
               <span className={`w-2 h-2 rounded-full ${getStatusColor()}`} />
-              <span className="text-muted-foreground">{getStatusText()}</span>
+              <span className="text-muted-foreground" data-testid="connection-status">{getStatusText()}</span>
             </div>
           </div>
 
@@ -333,6 +334,7 @@ export function ServerSelector() {
                             setVerifyError(null);
                           }}
                           className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
+                          data-testid="api-key-input"
                         />
                       </>
                     )}
@@ -431,6 +433,7 @@ export function ServerSelector() {
                     onClick={handleAddServer}
                     disabled={isVerifying}
                     className="flex-1 px-2 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded text-sm disabled:opacity-50"
+                    data-testid="save-server-btn"
                   >
                     {isVerifying ? 'Verifying...' : (editingServer ? 'Save' : 'Add')}
                   </button>
@@ -554,7 +557,7 @@ function ServerItem({
           {server.connectionMode === 'gateway' ? (
             <>
               {server.backendId}
-              <span className="ml-1 text-blue-500/70">via {new URL(server.gatewayUrl || '').host}</span>
+              <span className="ml-1 text-blue-500/70">via {(() => { try { return new URL(server.gatewayUrl || 'http://unknown').host; } catch { return server.gatewayUrl || 'unknown'; } })()}</span>
             </>
           ) : (
             <>
@@ -576,6 +579,7 @@ function ServerItem({
             setShowMenu(!showMenu);
           }}
           className="p-1 rounded hover:bg-secondary"
+          data-testid="server-menu-btn"
         >
           <svg
             className="w-4 h-4 text-muted-foreground"
@@ -612,6 +616,7 @@ function ServerItem({
                   setShowMenu(false);
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted"
+                data-testid="edit-server-btn"
               >
                 Edit
               </button>
