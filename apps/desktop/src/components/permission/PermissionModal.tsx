@@ -19,8 +19,15 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
   useEffect(() => {
     if (!request) return;
 
-    setRemainingTime(request.timeoutSec);
     setRemember(false);
+
+    // timeoutSec = 0 means no timeout (wait indefinitely like official Claude client)
+    if (request.timeoutSec === 0) {
+      setRemainingTime(0);
+      return; // Don't start countdown timer
+    }
+
+    setRemainingTime(request.timeoutSec);
 
     const interval = setInterval(() => {
       setRemainingTime((prev) => {
@@ -46,7 +53,9 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
     onDecision(request.requestId, false, remember);
   };
 
-  const progressPercent = (remainingTime / request.timeoutSec) * 100;
+  // Calculate progress percent only when timeout is set
+  const hasTimeout = request.timeoutSec > 0;
+  const progressPercent = hasTimeout ? (remainingTime / request.timeoutSec) * 100 : 0;
 
   return (
     <>
@@ -55,13 +64,15 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
 
       {/* Modal */}
       <div data-testid="permission-dialog" className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] bg-gray-800 rounded-lg shadow-2xl z-50 overflow-hidden">
-        {/* Timeout progress bar */}
-        <div className="h-1 bg-gray-700">
-          <div
-            className="h-full bg-yellow-500 transition-all duration-1000 ease-linear"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
+        {/* Timeout progress bar - only show when timeout is set */}
+        {hasTimeout && (
+          <div className="h-1 bg-gray-700">
+            <div
+              className="h-full bg-yellow-500 transition-all duration-1000 ease-linear"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        )}
 
         {/* Header */}
         <div className="px-5 pt-4 pb-3">
@@ -102,7 +113,7 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
             </pre>
           </div>
 
-          {/* Timeout warning */}
+          {/* Timeout warning - show different message based on timeout setting */}
           <div className="mt-3 flex items-center gap-2 text-sm">
             <svg className="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -112,12 +123,18 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span className="text-gray-400">
-              Auto-deny in{' '}
-              <span className={remainingTime <= 10 ? 'text-red-400 font-semibold' : 'text-yellow-400'}>
-                {remainingTime}s
+            {hasTimeout ? (
+              <span className="text-gray-400">
+                Auto-deny in{' '}
+                <span className={remainingTime <= 10 ? 'text-red-400 font-semibold' : 'text-yellow-400'}>
+                  {remainingTime}s
+                </span>
               </span>
-            </span>
+            ) : (
+              <span className="text-gray-400">
+                Waiting for your decision
+              </span>
+            )}
           </div>
         </div>
 

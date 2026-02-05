@@ -126,7 +126,7 @@ interface ActiveRun {
   abortController?: AbortController;
   pendingPermissions: Map<string, {
     resolve: (decision: PermissionDecision) => void;
-    timeout: NodeJS.Timeout;
+    timeout: NodeJS.Timeout | null;
   }>;
 }
 
@@ -571,7 +571,7 @@ function cancelRun(runId: string): void {
   if (run) {
     // Reject all pending permissions
     run.pendingPermissions.forEach(({ resolve, timeout }) => {
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
       resolve({ behavior: 'deny', message: 'Run cancelled' });
     });
     run.pendingPermissions.clear();
@@ -770,17 +770,20 @@ async function handleRunStart(
       // Permission request callback
       async (request) => {
         return new Promise<PermissionDecision>((resolve) => {
-          const timeoutMs = request.timeoutSeconds * 1000;
-
-          // Set timeout for auto-deny
-          const timeout = setTimeout(() => {
-            activeRun.pendingPermissions.delete(request.requestId);
-            resolve({ behavior: 'deny', message: 'Permission request timed out' });
-          }, timeoutMs);
+          // Set timeout for auto-deny only if timeoutSeconds > 0
+          // timeoutSeconds = 0 means no timeout (wait indefinitely)
+          let timeout: ReturnType<typeof setTimeout> | null = null;
+          if (request.timeoutSeconds > 0) {
+            const timeoutMs = request.timeoutSeconds * 1000;
+            timeout = setTimeout(() => {
+              activeRun.pendingPermissions.delete(request.requestId);
+              resolve({ behavior: 'deny', message: 'Permission request timed out' });
+            }, timeoutMs);
+          }
 
           // Store the resolver
           activeRun.pendingPermissions.set(request.requestId, { resolve, timeout });
-          console.log(`[Permission] Stored pending permission ${request.requestId} in run ${runId}`);
+          console.log(`[Permission] Stored pending permission ${request.requestId} in run ${runId} (timeout: ${request.timeoutSeconds > 0 ? request.timeoutSeconds + 's' : 'none'})`);
 
           // Send permission request to client
           sendMessage(client.ws, {
@@ -964,7 +967,10 @@ function handlePermissionDecision(message: {
     console.log(`[Permission] Checking run ${runId}, pending permissions: ${run.pendingPermissions.size}`);
     const pending = run.pendingPermissions.get(message.requestId);
     if (pending) {
-      clearTimeout(pending.timeout);
+      // Clear timeout if it was set (timeout is null when timeoutSeconds = 0)
+      if (pending.timeout) {
+        clearTimeout(pending.timeout);
+      }
       run.pendingPermissions.delete(message.requestId);
 
       pending.resolve({

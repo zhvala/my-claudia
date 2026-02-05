@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useServerStore } from '../stores/serverStore';
+import { useProjectStore } from '../stores/projectStore';
 
 interface ImportDialogProps {
   isOpen: boolean;
@@ -43,6 +44,23 @@ export function ImportDialog({ isOpen, onClose }: ImportDialogProps) {
   const [loading, setLoading] = useState(false);
 
   const server = useServerStore((state) => state.getActiveServer());
+  const projects = useProjectStore((state) => state.projects);
+
+  // Set default project when projects are loaded
+  useEffect(() => {
+    if (projects.length > 0 && !targetProjectId) {
+      setTargetProjectId(projects[0].id);
+    }
+  }, [projects, targetProjectId]);
+
+  // Ensure server URL has http:// prefix
+  const getServerUrl = (): string => {
+    const address = server?.address || 'localhost:3100';
+    if (address.startsWith('http://') || address.startsWith('https://')) {
+      return address;
+    }
+    return `http://${address}`;
+  };
 
   // Reset state when closing
   const handleClose = () => {
@@ -87,7 +105,8 @@ export function ImportDialog({ isOpen, onClose }: ImportDialogProps) {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${server?.address}/api/import/claude-cli/scan`, {
+      // Server handles ~ expansion
+      const response = await fetch(`${getServerUrl()}/api/import/claude-cli/scan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,6 +130,15 @@ export function ImportDialog({ isOpen, onClose }: ImportDialogProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Manually scan the typed path
+  const handleManualScan = async () => {
+    if (!claudeCliPath) {
+      setError('Please enter a directory path');
+      return;
+    }
+    await scanDirectory(claudeCliPath);
   };
 
   // Start import
@@ -142,7 +170,7 @@ export function ImportDialog({ isOpen, onClose }: ImportDialogProps) {
         };
       });
 
-      const response = await fetch(`${server?.address}/api/import/claude-cli/import`, {
+      const response = await fetch(`${getServerUrl()}/api/import/claude-cli/import`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -215,15 +243,26 @@ export function ImportDialog({ isOpen, onClose }: ImportDialogProps) {
                     onChange={(e) => setClaudeCliPath(e.target.value)}
                     placeholder="~/.claude"
                     className="flex-1 px-3 py-2 bg-input border border-border rounded text-sm"
+                    onKeyDown={(e) => e.key === 'Enter' && handleManualScan()}
                   />
                   <button
-                    onClick={handleSelectDirectory}
+                    onClick={handleManualScan}
                     disabled={loading}
                     className="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90 disabled:opacity-50"
                   >
-                    {loading ? 'Scanning...' : 'Browse...'}
+                    {loading ? 'Scanning...' : 'Scan'}
+                  </button>
+                  <button
+                    onClick={handleSelectDirectory}
+                    disabled={loading}
+                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded hover:opacity-90 disabled:opacity-50"
+                  >
+                    Browse...
                   </button>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter the path to your Claude CLI directory (default: ~/.claude)
+                </p>
               </div>
             </div>
           )}
@@ -295,17 +334,27 @@ export function ImportDialog({ isOpen, onClose }: ImportDialogProps) {
 
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  Target Project ID
+                  Target Project
                 </label>
-                <input
-                  type="text"
-                  value={targetProjectId}
-                  onChange={(e) => setTargetProjectId(e.target.value)}
-                  placeholder="Enter project ID"
-                  className="w-full px-3 py-2 bg-input border border-border rounded text-sm"
-                />
+                {projects.length > 0 ? (
+                  <select
+                    value={targetProjectId}
+                    onChange={(e) => setTargetProjectId(e.target.value)}
+                    className="w-full px-3 py-2 bg-input border border-border rounded text-sm"
+                  >
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-3 bg-destructive/10 border border-destructive rounded text-sm text-destructive">
+                    No projects available. Please create a project first before importing sessions.
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  Sessions will be imported into this project.
+                  Sessions will be imported into the selected project.
                 </p>
               </div>
 
@@ -318,7 +367,7 @@ export function ImportDialog({ isOpen, onClose }: ImportDialogProps) {
                 </button>
                 <button
                   onClick={startImport}
-                  disabled={!targetProjectId || loading}
+                  disabled={!targetProjectId || loading || projects.length === 0}
                   className="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90 disabled:opacity-50"
                 >
                   Start Import
