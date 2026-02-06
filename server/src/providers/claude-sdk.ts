@@ -176,7 +176,7 @@ export async function* runClaude(
         toolName,
         toolInput,
         detail: JSON.stringify(toolInput, null, 2),
-        timeoutSeconds: 60,
+        timeoutSeconds: 0,  // 0 = no timeout, wait indefinitely for user decision
       });
 
       // SDK requires updatedInput when allowing

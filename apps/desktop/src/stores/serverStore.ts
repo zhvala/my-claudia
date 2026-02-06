@@ -1,24 +1,43 @@
 import { create } from 'zustand';
 import type { BackendServer } from '@my-claudia/shared';
 
+// Per-server connection state
+export interface ServerConnection {
+  status: 'connected' | 'connecting' | 'disconnected' | 'error';
+  error: string | null;
+  isLocalConnection: boolean | null;
+}
+
+export type ConnectionStatus = ServerConnection['status'];
+
 interface ServerState {
   servers: BackendServer[];
   activeServerId: string | null;
-  connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
+  // Per-server connection states (serverId -> connection)
+  connections: Record<string, ServerConnection>;
+
+  // Legacy global state (for backward compatibility during migration)
+  connectionStatus: ConnectionStatus;
   connectionError: string | null;
-  isLocalConnection: boolean | null;  // Determined by backend based on actual connection IP
+  isLocalConnection: boolean | null;
 
   // Actions
   setServers: (servers: BackendServer[]) => void;
   setActiveServer: (id: string | null) => void;
-  setConnectionStatus: (status: ServerState['connectionStatus'], error?: string) => void;
+  // Legacy global setters (redirect to per-server)
+  setConnectionStatus: (status: ConnectionStatus, error?: string) => void;
   setIsLocalConnection: (isLocal: boolean | null) => void;
+  // New per-server setters
+  setServerConnectionStatus: (serverId: string, status: ConnectionStatus, error?: string) => void;
+  setServerLocalConnection: (serverId: string, isLocal: boolean | null) => void;
   updateLastConnected: (id: string) => void;
   setApiKey: (serverId: string, apiKey: string) => void;
 
   // Getters
   getActiveServer: () => BackendServer | undefined;
   getDefaultServer: () => BackendServer | undefined;
+  getServerConnection: (serverId: string) => ServerConnection | undefined;
+  getActiveServerConnection: () => ServerConnection | undefined;
 }
 
 // Note: Server list is now loaded from database via WebSocket
@@ -35,9 +54,18 @@ const DEFAULT_SERVER: BackendServer = {
   createdAt: Date.now()
 };
 
+// Default connection state for a server
+const DEFAULT_CONNECTION: ServerConnection = {
+  status: 'disconnected',
+  error: null,
+  isLocalConnection: null
+};
+
 export const useServerStore = create<ServerState>()((set, get) => ({
   servers: [DEFAULT_SERVER],
   activeServerId: INITIAL_ACTIVE_SERVER,
+  connections: {},
+  // Legacy global state (computed from active server's connection)
   connectionStatus: 'disconnected',
   connectionError: null,
   isLocalConnection: null,
@@ -73,20 +101,108 @@ export const useServerStore = create<ServerState>()((set, get) => ({
   },
 
   setActiveServer: (id) => {
+    const state = get();
+    // Get the connection state for the new active server
+    const connection = id ? state.connections[id] : undefined;
+
     set({
       activeServerId: id,
-      connectionStatus: 'disconnected',
-      connectionError: null,
-      isLocalConnection: null
+      // Update legacy global state from the new active server's connection
+      connectionStatus: connection?.status || 'disconnected',
+      connectionError: connection?.error || null,
+      isLocalConnection: connection?.isLocalConnection ?? null
     });
   },
 
+  // Legacy global setters (redirect to active server)
   setConnectionStatus: (status, error) => {
-    set({ connectionStatus: status, connectionError: error || null });
+    const state = get();
+    if (state.activeServerId) {
+      // Update both per-server and legacy global state
+      const newConnection: ServerConnection = {
+        ...state.connections[state.activeServerId],
+        status,
+        error: error || null
+      };
+      set({
+        connectionStatus: status,
+        connectionError: error || null,
+        connections: {
+          ...state.connections,
+          [state.activeServerId]: newConnection
+        }
+      });
+    } else {
+      set({ connectionStatus: status, connectionError: error || null });
+    }
   },
 
   setIsLocalConnection: (isLocal) => {
-    set({ isLocalConnection: isLocal });
+    const state = get();
+    if (state.activeServerId) {
+      const newConnection: ServerConnection = {
+        ...state.connections[state.activeServerId],
+        isLocalConnection: isLocal
+      };
+      set({
+        isLocalConnection: isLocal,
+        connections: {
+          ...state.connections,
+          [state.activeServerId]: newConnection
+        }
+      });
+    } else {
+      set({ isLocalConnection: isLocal });
+    }
+  },
+
+  // New per-server setters
+  setServerConnectionStatus: (serverId, status, error) => {
+    const state = get();
+    const newConnection: ServerConnection = {
+      ...DEFAULT_CONNECTION,
+      ...state.connections[serverId],
+      status,
+      error: error || null
+    };
+
+    const updates: Partial<ServerState> = {
+      connections: {
+        ...state.connections,
+        [serverId]: newConnection
+      }
+    };
+
+    // If this is the active server, also update legacy global state
+    if (serverId === state.activeServerId) {
+      updates.connectionStatus = status;
+      updates.connectionError = error || null;
+    }
+
+    set(updates);
+  },
+
+  setServerLocalConnection: (serverId, isLocal) => {
+    const state = get();
+    const newConnection: ServerConnection = {
+      ...DEFAULT_CONNECTION,
+      ...state.connections[serverId],
+      isLocalConnection: isLocal
+    };
+
+    const updates: Partial<ServerState> = {
+      connections: {
+        ...state.connections,
+        [serverId]: newConnection
+      }
+    };
+
+    // If this is the active server, also update legacy global state
+    if (serverId === state.activeServerId) {
+      updates.isLocalConnection = isLocal;
+    }
+
+    set(updates);
   },
 
   updateLastConnected: (id) => {
@@ -105,6 +221,17 @@ export const useServerStore = create<ServerState>()((set, get) => ({
   getDefaultServer: () => {
     const state = get();
     return state.servers.find((s) => s.isDefault);
+  },
+
+  getServerConnection: (serverId) => {
+    const state = get();
+    return state.connections[serverId];
+  },
+
+  getActiveServerConnection: () => {
+    const state = get();
+    if (!state.activeServerId) return undefined;
+    return state.connections[state.activeServerId];
   },
 
   setApiKey: (serverId, apiKey) => {

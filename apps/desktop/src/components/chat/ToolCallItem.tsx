@@ -141,33 +141,101 @@ interface ToolCallListProps {
   defaultCollapsed?: boolean;
 }
 
+// Get a short summary of what a tool call did
+function getToolCallSummary(tc: ToolCallState): string {
+  const input = tc.toolInput as Record<string, unknown> | undefined;
+  if (!input) return tc.toolName;
+
+  switch (tc.toolName) {
+    case 'Read':
+      return input.file_path ? `📖 ${String(input.file_path).split('/').pop()}` : '📖 Read';
+    case 'Write':
+      return input.file_path ? `✏️ ${String(input.file_path).split('/').pop()}` : '✏️ Write';
+    case 'Edit':
+      return input.file_path ? `📝 ${String(input.file_path).split('/').pop()}` : '📝 Edit';
+    case 'Bash':
+      const cmd = String(input.command || '').split(' ')[0];
+      return `💻 ${cmd || 'bash'}`;
+    case 'Grep':
+      return `🔍 grep ${String(input.pattern || '').substring(0, 15)}`;
+    case 'Glob':
+      return `📁 glob ${String(input.pattern || '').substring(0, 15)}`;
+    case 'Task':
+      return `🤖 ${String(input.description || 'task').substring(0, 20)}`;
+    case 'WebFetch':
+      try {
+        const url = new URL(String(input.url || ''));
+        return `🌐 ${url.hostname}`;
+      } catch {
+        return '🌐 fetch';
+      }
+    case 'WebSearch':
+      return `🔎 ${String(input.query || '').substring(0, 15)}`;
+    case 'TodoWrite':
+      return '📋 Update todos';
+    default:
+      return `🔧 ${tc.toolName}`;
+  }
+}
+
+// Get status icon
+function getStatusIcon(status: ToolCallState['status']): string {
+  switch (status) {
+    case 'completed': return '✓';
+    case 'error': return '✗';
+    case 'running': return '⟳';
+    default: return '';
+  }
+}
+
 export function ToolCallList({ toolCalls, defaultCollapsed = false }: ToolCallListProps) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   if (toolCalls.length === 0) return null;
 
-  // When collapsed, show a summary
+  // When collapsed, show a detailed summary of each tool call
   if (isCollapsed) {
     const completedCount = toolCalls.filter(tc => tc.status === 'completed').length;
     const errorCount = toolCalls.filter(tc => tc.status === 'error').length;
     const runningCount = toolCalls.filter(tc => tc.status === 'running').length;
 
     return (
-      <button
+      <div
         onClick={() => setIsCollapsed(false)}
-        className="flex items-center gap-2 px-3 py-2 text-xs bg-muted/50 rounded-lg hover:bg-muted transition-colors w-full text-left"
+        className="px-3 py-2 text-xs bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer"
       >
-        <span className="text-muted-foreground">🔧</span>
-        <span className="text-foreground font-medium">
-          {toolCalls.length} tool call{toolCalls.length > 1 ? 's' : ''}
-        </span>
-        <span className="text-muted-foreground">
-          {completedCount > 0 && <span className="text-success">✓{completedCount}</span>}
-          {errorCount > 0 && <span className="text-destructive ml-1">✗{errorCount}</span>}
-          {runningCount > 0 && <span className="text-primary ml-1">⟳{runningCount}</span>}
-        </span>
-        <span className="text-muted-foreground ml-auto">▶</span>
-      </button>
+        {/* Header with counts */}
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="text-foreground font-medium">
+            🔧 {toolCalls.length} tool call{toolCalls.length > 1 ? 's' : ''}
+          </span>
+          <span className="text-muted-foreground">
+            {completedCount > 0 && <span className="text-success">✓{completedCount}</span>}
+            {errorCount > 0 && <span className="text-destructive ml-1">✗{errorCount}</span>}
+            {runningCount > 0 && <span className="text-primary ml-1">⟳{runningCount}</span>}
+          </span>
+          <span className="text-muted-foreground ml-auto text-[10px]">点击展开 ▶</span>
+        </div>
+        {/* Brief list of each tool call */}
+        <div className="flex flex-wrap gap-1.5">
+          {toolCalls.map((tc, idx) => (
+            <span
+              key={tc.id || idx}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] ${
+                tc.status === 'error'
+                  ? 'bg-destructive/20 text-destructive'
+                  : tc.status === 'running'
+                  ? 'bg-primary/20 text-primary'
+                  : 'bg-secondary text-muted-foreground'
+              }`}
+              title={formatToolInput(tc.toolName, tc.toolInput)}
+            >
+              <span>{getStatusIcon(tc.status)}</span>
+              <span className="truncate max-w-[120px]">{getToolCallSummary(tc)}</span>
+            </span>
+          ))}
+        </div>
+      </div>
     );
   }
 

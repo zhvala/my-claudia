@@ -1,9 +1,21 @@
 import { Router, Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import type Database from 'better-sqlite3';
 import type { ApiResponse, Message } from '@my-claudia/shared';
 import { fileStore } from '../storage/fileStore.js';
+
+// Expand ~ to home directory
+function expandTilde(filepath: string): string {
+  if (filepath.startsWith('~/')) {
+    return path.join(os.homedir(), filepath.slice(2));
+  }
+  if (filepath === '~') {
+    return os.homedir();
+  }
+  return filepath;
+}
 
 // Types for Claude CLI data structures
 interface ClaudeSessionEntry {
@@ -82,15 +94,18 @@ export function createImportRoutes(db: Database.Database): Router {
   // Scan Claude CLI directory for sessions
   router.post('/claude-cli/scan', (req: Request, res: Response) => {
     try {
-      const { claudeCliPath } = req.body as ScanRequest;
+      const { claudeCliPath: rawPath } = req.body as ScanRequest;
 
-      if (!claudeCliPath) {
+      if (!rawPath) {
         res.json({
           success: false,
           error: { code: 'INVALID_REQUEST', message: 'claudeCliPath is required' }
         } as ApiResponse<never>);
         return;
       }
+
+      // Expand ~ to home directory
+      const claudeCliPath = expandTilde(rawPath);
 
       // Check if directory exists
       if (!fs.existsSync(claudeCliPath)) {
@@ -132,15 +147,18 @@ export function createImportRoutes(db: Database.Database): Router {
   // Import selected sessions
   router.post('/claude-cli/import', async (req: Request, res: Response) => {
     try {
-      const { claudeCliPath, imports, options } = req.body as ImportRequest;
+      const { claudeCliPath: rawPath, imports, options } = req.body as ImportRequest;
 
-      if (!claudeCliPath || !imports || !Array.isArray(imports)) {
+      if (!rawPath || !imports || !Array.isArray(imports)) {
         res.json({
           success: false,
           error: { code: 'INVALID_REQUEST', message: 'Invalid request parameters' }
         } as ApiResponse<never>);
         return;
       }
+
+      // Expand ~ to home directory
+      const claudeCliPath = expandTilde(rawPath);
 
       const result = await importSessions(db, claudeCliPath, imports, options);
 
