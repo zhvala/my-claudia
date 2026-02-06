@@ -2,6 +2,7 @@
  * Connection mode helpers for E2E tests
  *
  * Migrated from Playwright Page to BrowserAdapter.
+ * Fixed BrowserAdapter API compatibility issues.
  */
 import type { BrowserAdapter } from './browser-adapter';
 import type { ModeConfig } from './modes';
@@ -25,7 +26,7 @@ export async function switchToMode(browser: BrowserAdapter, mode: ModeConfig): P
   await browser.waitForTimeout(500);
 
   // 3. Check if mode with this name already exists
-  const modeOption = browser.getByText(mode.name, { exact: false }).first();
+  const modeOption = browser.locator(`text=${mode.name}`).first();
   const modeExists = await modeOption.isVisible({ timeout: 2000 }).catch(() => false);
 
   if (modeExists) {
@@ -55,50 +56,60 @@ export async function switchToMode(browser: BrowserAdapter, mode: ModeConfig): P
  * Create a new server configuration for a mode
  */
 export async function createModeConfig(browser: BrowserAdapter, mode: ModeConfig): Promise<void> {
-  await browser.getByText('Add Server').click();
+  const addServerBtn = browser.locator('text=Add Server').first();
+  await addServerBtn.click();
   await browser.waitForTimeout(500);
 
-  await browser.getByPlaceholder('Server name').fill(mode.name);
+  const serverNameInput = browser.locator('input[placeholder*="Server name"]');
+  await serverNameInput.fill(mode.name);
 
   if (mode.gatewayUrl) {
-    await browser.getByRole('button', { name: 'Gateway' }).click();
+    const gatewayBtn = browser.locator('button:has-text("Gateway")').first();
+    await gatewayBtn.click();
     await browser.waitForTimeout(300);
 
-    await browser.getByPlaceholder('Gateway URL (e.g., https://gateway.example.com)').fill(mode.gatewayUrl!);
+    const gatewayUrlInput = browser.locator('input[placeholder*="Gateway URL"]');
+    await gatewayUrlInput.fill(mode.gatewayUrl!);
 
-    const gatewaySecretPlaceholder = browser.getByPlaceholder(/Gateway Secret/).first();
-    await gatewaySecretPlaceholder.fill(mode.gatewaySecret!);
+    const gatewaySecretInput = browser.locator('input[placeholder*="Gateway Secret"]').first();
+    await gatewaySecretInput.fill(mode.gatewaySecret!);
 
-    await browser.getByPlaceholder('Backend ID (from Gateway)').fill(mode.backendId || '');
+    const backendIdInput = browser.locator('input[placeholder*="Backend ID"]');
+    await backendIdInput.fill(mode.backendId || '');
 
-    const apiKeyPlaceholder = browser.getByPlaceholder(/Backend API Key/).first();
-    await apiKeyPlaceholder.fill(mode.apiKey || '');
+    const backendApiKeyInput = browser.locator('input[placeholder*="Backend API Key"]').first();
+    await backendApiKeyInput.fill(mode.apiKey || '');
 
     if (mode.proxyUrl) {
-      await browser.getByPlaceholder(/Proxy URL/).fill(mode.proxyUrl);
+      const proxyUrlInput = browser.locator('input[placeholder*="Proxy URL"]');
+      await proxyUrlInput.fill(mode.proxyUrl);
       if (mode.proxyAuth) {
-        await browser.getByPlaceholder(/Proxy Username/).fill(mode.proxyAuth.username);
-        await browser.getByPlaceholder(/Proxy Password/).fill(mode.proxyAuth.password);
+        const proxyUsernameInput = browser.locator('input[placeholder*="Proxy Username"]');
+        await proxyUsernameInput.fill(mode.proxyAuth.username);
+        const proxyPasswordInput = browser.locator('input[placeholder*="Proxy Password"]');
+        await proxyPasswordInput.fill(mode.proxyAuth.password);
       }
     }
   } else {
-    const directBtn = browser.getByRole('button', { name: 'Direct' });
+    const directBtn = browser.locator('button:has-text("Direct")').first();
     if (await directBtn.isVisible().catch(() => false)) {
       await directBtn.click();
       await browser.waitForTimeout(300);
     }
 
-    await browser.getByPlaceholder('Address (e.g., 192.168.1.100:3100)').fill(mode.serverAddress);
+    const addressInput = browser.locator('input[placeholder*="Address"]');
+    await addressInput.fill(mode.serverAddress);
 
     if (mode.requiresAuth && mode.apiKey) {
-      const apiKeyInput = browser.getByPlaceholder(/API Key/);
+      const apiKeyInput = browser.locator('input[placeholder*="API Key"]');
       if (await apiKeyInput.isVisible({ timeout: 2000 }).catch(() => false)) {
         await apiKeyInput.fill(mode.apiKey);
       }
     }
   }
 
-  await browser.click('[data-testid="save-server-btn"]');
+  const saveBtn = browser.locator('[data-testid="save-server-btn"]');
+  await saveBtn.click();
   await browser.waitForTimeout(1000);
 
   // Select the newly created server
@@ -106,7 +117,7 @@ export async function createModeConfig(browser: BrowserAdapter, mode: ModeConfig
   await serverSelector.click();
   await browser.waitForTimeout(500);
 
-  const newModeOption = browser.getByText(mode.name, { exact: false }).first();
+  const newModeOption = browser.locator(`text=${mode.name}`).first();
   if (await newModeOption.isVisible({ timeout: 3000 }).catch(() => false)) {
     await newModeOption.click();
     await browser.waitForTimeout(1000);
@@ -133,7 +144,7 @@ export async function ensureActiveSession(browser: BrowserAdapter): Promise<void
   }
 
   // Check if "No projects yet" is shown
-  const noProjects = browser.getByText('No projects yet');
+  const noProjects = browser.locator('text=No projects yet').first();
   if (await noProjects.isVisible({ timeout: 1000 }).catch(() => false)) {
     console.log('[ensureActiveSession] No projects - creating one...');
     const addProjectBtn = browser.locator('button[title="Add Project"]').first();
@@ -141,8 +152,10 @@ export async function ensureActiveSession(browser: BrowserAdapter): Promise<void
       await addProjectBtn.click();
       await browser.waitForTimeout(300);
 
-      await browser.getByPlaceholder('Project name').fill('Test Project');
-      const createProjectBtn = browser.getByRole('button', { name: 'Create' });
+      const projectNameInput = browser.locator('input[placeholder*="Project name"]');
+      await projectNameInput.fill('Test Project');
+
+      const createProjectBtn = browser.locator('button:has-text("Create")').first();
       if (await createProjectBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
         await createProjectBtn.click();
         await browser.waitForTimeout(1500);
@@ -151,7 +164,7 @@ export async function ensureActiveSession(browser: BrowserAdapter): Promise<void
   }
 
   // Expand a project
-  const projectBtn = browser.getByText('Test Project').first();
+  const projectBtn = browser.locator('text=Test Project').first();
   if (await projectBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await projectBtn.click();
     await browser.waitForTimeout(500);
@@ -184,7 +197,7 @@ export async function ensureActiveSession(browser: BrowserAdapter): Promise<void
       await newSessionBtn.click();
       await browser.waitForTimeout(500);
 
-      const createBtn = browser.getByRole('button', { name: 'Create' });
+      const createBtn = browser.locator('button:has-text("Create")').first();
       if (await createBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
         await createBtn.click();
         await browser.waitForTimeout(1000);
