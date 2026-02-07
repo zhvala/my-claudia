@@ -11,25 +11,25 @@ const MODE_OPTIONS: { value: PermissionMode; label: string; description: string;
   {
     value: 'default',
     label: 'Default',
-    description: 'Standard permission checks',
+    description: 'Standard mode - requires confirmation for tool calls',
     icon: ICONS.permissionModes.default,
   },
   {
     value: 'plan',
     label: 'Plan',
-    description: 'Read-only analysis and planning',
+    description: 'Planning mode - Claude creates a plan before executing',
     icon: ICONS.permissionModes.plan,
   },
   {
     value: 'acceptEdits',
     label: 'Auto-Edit',
-    description: 'Auto-approve file edits',
+    description: 'Auto-approve file edits only',
     icon: ICONS.permissionModes.acceptEdits,
   },
   {
     value: 'bypassPermissions',
     label: 'Bypass',
-    description: 'Skip all permission checks',
+    description: 'Skip all permission checks (use with caution)',
     icon: ICONS.permissionModes.bypassPermissions,
   },
 ];

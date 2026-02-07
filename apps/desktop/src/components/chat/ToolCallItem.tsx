@@ -41,11 +41,13 @@ function formatToolInput(toolName: string, input: unknown): string {
 // Format tool result for display
 function formatToolResult(result: unknown): string {
   if (typeof result === 'string') {
+    // Trim leading/trailing whitespace from command output
+    const trimmed = result.trim();
     // Truncate long strings
-    if (result.length > 500) {
-      return result.substring(0, 500) + '... (truncated)';
+    if (trimmed.length > 500) {
+      return trimmed.substring(0, 500) + '... (truncated)';
     }
-    return result;
+    return trimmed;
   }
   const json = JSON.stringify(result, null, 2);
   if (json.length > 500) {
@@ -66,24 +68,24 @@ export function ToolCallItem({ toolCall }: ToolCallItemProps) {
       data-testid="tool-use"
       className={`my-2 rounded-lg border ${
         status === 'running'
-          ? 'border-blue-500/30 bg-blue-500/5'
+          ? 'border-primary/30 bg-primary/5'
           : isError
-          ? 'border-red-500/30 bg-red-500/5'
-          : 'border-green-500/30 bg-green-500/5'
+          ? 'border-destructive/30 bg-destructive/5'
+          : 'border-success/30 bg-success/5'
       }`}
     >
       {/* Header - clickable to expand/collapse */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/5 rounded-lg transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 rounded-lg transition-colors"
       >
         {/* Status indicator */}
         {status === 'running' ? (
-          <span className="animate-spin text-blue-400">⟳</span>
+          <span className="animate-spin text-primary">⟳</span>
         ) : isError ? (
-          <span className="text-red-400">✗</span>
+          <span className="text-destructive">✗</span>
         ) : (
-          <span className="text-green-400">✓</span>
+          <span className="text-success">✓</span>
         )}
 
         {/* Tool icon and name */}
@@ -214,7 +216,7 @@ export function ToolCallList({ toolCalls, defaultCollapsed = false }: ToolCallLi
             {errorCount > 0 && <span className="text-destructive ml-1">✗{errorCount}</span>}
             {runningCount > 0 && <span className="text-primary ml-1">⟳{runningCount}</span>}
           </span>
-          <span className="text-muted-foreground ml-auto text-[10px]">点击展开 ▶</span>
+          <span className="text-muted-foreground ml-auto text-[10px]">Click to expand ▶</span>
         </div>
         {/* Brief list of each tool call */}
         <div className="flex flex-wrap gap-1.5">

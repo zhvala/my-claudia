@@ -60,15 +60,15 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/70 z-50" />
+      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50" />
 
       {/* Modal */}
-      <div data-testid="permission-dialog" className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] bg-gray-800 rounded-lg shadow-2xl z-50 overflow-hidden">
+      <div data-testid="permission-dialog" className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] bg-card border border-border rounded-lg shadow-2xl z-50 overflow-hidden">
         {/* Timeout progress bar - only show when timeout is set */}
         {hasTimeout && (
-          <div className="h-1 bg-gray-700">
+          <div className="h-1 bg-muted">
             <div
-              className="h-full bg-yellow-500 transition-all duration-1000 ease-linear"
+              className="h-full bg-warning transition-all duration-1000 ease-linear"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -77,8 +77,8 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
         {/* Header */}
         <div className="px-5 pt-4 pb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-              <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
+              <svg className="w-5 h-5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -88,8 +88,8 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
               </svg>
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Permission Required</h2>
-              <p className="text-sm text-gray-400">
+              <h2 className="text-lg font-semibold text-card-foreground">Permission Required</h2>
+              <p className="text-sm text-muted-foreground">
                 Claude wants to use a tool that requires your approval
               </p>
             </div>
@@ -97,25 +97,25 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
         </div>
 
         {/* Content */}
-        <div className="px-5 py-3 border-t border-b border-gray-700">
+        <div className="px-5 py-3 border-t border-b border-border">
           {/* Tool name */}
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-sm text-gray-400">Tool:</span>
-            <span className="px-2 py-0.5 bg-gray-700 rounded text-sm font-mono">
+            <span className="text-sm text-muted-foreground">Tool:</span>
+            <span className="px-2 py-0.5 bg-muted rounded text-sm font-mono text-foreground">
               {request.toolName}
             </span>
           </div>
 
           {/* Detail */}
-          <div className="bg-gray-900/50 rounded-lg p-3 max-h-48 overflow-y-auto">
-            <pre className="text-sm text-gray-300 whitespace-pre-wrap break-words font-mono">
+          <div className="bg-muted/50 rounded-lg p-3 max-h-48 overflow-y-auto">
+            <pre className="text-sm text-foreground whitespace-pre-wrap break-words font-mono">
               {request.detail}
             </pre>
           </div>
 
           {/* Timeout warning - show different message based on timeout setting */}
           <div className="mt-3 flex items-center gap-2 text-sm">
-            <svg className="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -124,14 +124,14 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
               />
             </svg>
             {hasTimeout ? (
-              <span className="text-gray-400">
+              <span className="text-muted-foreground">
                 Auto-deny in{' '}
-                <span className={remainingTime <= 10 ? 'text-red-400 font-semibold' : 'text-yellow-400'}>
+                <span className={remainingTime <= 10 ? 'text-destructive font-semibold' : 'text-warning'}>
                   {remainingTime}s
                 </span>
               </span>
             ) : (
-              <span className="text-gray-400">
+              <span className="text-muted-foreground">
                 Waiting for your decision
               </span>
             )}
@@ -145,25 +145,25 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
               type="checkbox"
               checked={remember}
               onChange={(e) => setRemember(e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-primary-500 focus:ring-primary-500"
+              className="rounded border-input bg-background text-primary focus:ring-primary"
             />
-            <span className="text-sm text-gray-300">
+            <span className="text-sm text-foreground">
               Remember this decision for this session
             </span>
           </label>
         </div>
 
         {/* Actions */}
-        <div className="px-5 py-4 bg-gray-900/30 flex gap-3">
+        <div className="px-5 py-4 bg-muted/30 flex gap-3">
           <button
             onClick={handleDeny}
-            className="flex-1 px-4 py-2.5 bg-gray-600 hover:bg-gray-500 rounded-lg font-medium transition-colors"
+            className="flex-1 px-4 py-2.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg font-medium transition-colors"
           >
             Deny
           </button>
           <button
             onClick={handleAllow}
-            className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-500 rounded-lg font-medium transition-colors"
+            className="flex-1 px-4 py-2.5 bg-success hover:bg-success/80 text-success-foreground rounded-lg font-medium transition-colors"
           >
             Allow
           </button>

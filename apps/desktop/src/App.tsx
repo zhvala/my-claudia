@@ -39,9 +39,6 @@ function AppContent() {
     }
   }, [connectionStatus, addServer]);
 
-  // Note: Connection is automatically managed by useWebSocket/useGatewaySocket hooks
-  // No need to manually call connect() here
-
   const handlePermissionDecision = useCallback(
     (requestId: string, allow: boolean, remember?: boolean) => {
       sendMessage({
@@ -56,65 +53,97 @@ function AppContent() {
   );
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
-      {/* Sidebar */}
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        isMobile={isMobile}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header with Server Selector */}
-        <header className="h-12 border-b border-border flex items-center justify-between px-2 md:px-4">
+    <div className="flex flex-col h-screen bg-background text-foreground">
+      {/* Unified Header - spans full width */}
+      <header
+        className="h-14 border-b border-border flex items-center px-4 bg-card flex-shrink-0"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', marginTop: '28px' }}
+        data-tauri-drag-region
+      >
+        {/* Left section: Logo and app name */}
+        <div className="flex items-center gap-3 min-w-[200px]" data-tauri-drag-region>
           {/* Mobile hamburger menu */}
           {isMobile && (
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded hover:bg-secondary text-muted-foreground hover:text-foreground mr-2"
+              className="p-2 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"
               aria-label="Open menu"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
           )}
 
-          <ServerSelector />
-
-          {/* Could add more header items here like settings, user info, etc. */}
-          <div className="flex items-center gap-2">
-            {/* Placeholder for future header items */}
-          </div>
-        </header>
-
-        {/* Chat Area */}
-        <div className="flex-1 overflow-hidden">
-          {selectedSessionId ? (
-            <ChatInterface sessionId={selectedSessionId} />
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <div className="text-center">
-                <h2 className="text-xl font-semibold mb-2">Welcome to My Claudia</h2>
-                <p>Select a project and session to start chatting</p>
-              </div>
+          {/* Logo - with left padding for macOS traffic lights */}
+          <div className="flex items-center gap-2 pl-16" data-tauri-drag-region>
+            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-base">🤖</span>
             </div>
+            <div className="flex flex-col" data-tauri-drag-region>
+              <span className="font-semibold text-sm text-foreground leading-tight" data-tauri-drag-region>My Claudia</span>
+              <span className="text-[10px] text-muted-foreground leading-tight">AI Assistant</span>
+            </div>
+          </div>
+
+          {/* Sidebar toggle */}
+          {!isMobile && (
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground ml-2"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {sidebarCollapsed ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                )}
+              </svg>
+            </button>
           )}
         </div>
-      </main>
+
+        {/* Center/Right section: Server selector */}
+        <div className="flex-1 flex items-center justify-start ml-4">
+          <ServerSelector />
+        </div>
+
+        {/* Right section: placeholder for future items */}
+        <div className="flex items-center gap-2">
+          {/* Future items like settings, user info */}
+        </div>
+      </header>
+
+      {/* Content area: Sidebar + Main */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          isMobile={isMobile}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          hideHeader={true}
+        />
+
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          {/* Chat Area */}
+          <div className="flex-1 overflow-hidden">
+            {selectedSessionId ? (
+              <ChatInterface sessionId={selectedSessionId} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center">
+                  <h2 className="text-xl font-semibold mb-2">Welcome to My Claudia</h2>
+                  <p>Select a project and session to start chatting</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
 
       {/* Permission Modal */}
       <PermissionModal

@@ -151,7 +151,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Connection</span>
-                      <span className={isConnected ? 'text-green-500' : 'text-muted-foreground'}>
+                      <span className={isConnected ? 'text-success' : 'text-muted-foreground'}>
                         {isConnected ? 'Connected' : 'Disconnected'}
                       </span>
                     </div>
@@ -310,7 +310,7 @@ function ServerListManager() {
               </span>
             )}
             {server.id === activeServerId && (
-              <span className="px-1.5 py-0.5 bg-green-500/20 text-green-500 text-xs rounded">
+              <span className="px-1.5 py-0.5 bg-success/20 text-success text-xs rounded">
                 Active
               </span>
             )}

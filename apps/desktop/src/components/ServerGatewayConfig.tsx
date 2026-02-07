@@ -150,7 +150,7 @@ export function ServerGatewayConfig() {
   if (loading) {
     return (
       <div className="p-4">
-        <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
@@ -158,32 +158,32 @@ export function ServerGatewayConfig() {
   return (
     <div className="p-4 space-y-4">
       <div>
-        <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">
+        <h3 className="text-lg font-semibold mb-2 text-foreground">
           Server Gateway Configuration
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Connect your backend server to a Gateway to enable remote access from mobile devices.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3">
+          <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
 
       {/* Status Display */}
       {status && (
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 space-y-2">
+        <div className="bg-muted rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</span>
+            <span className="text-sm font-medium text-foreground">Status:</span>
             <span
               className={`text-sm px-2 py-1 rounded ${
                 status.connected
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                  ? 'bg-success/20 text-success'
                   : status.enabled
-                  ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400'
+                  ? 'bg-warning/20 text-warning'
+                  : 'bg-muted text-muted-foreground'
               }`}
             >
               {status.connected ? 'Connected' : status.enabled ? 'Connecting...' : 'Disabled'}
@@ -191,8 +191,8 @@ export function ServerGatewayConfig() {
           </div>
           {status.backendId && (
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Backend ID:</span>
-              <span className="text-sm font-mono text-gray-600 dark:text-gray-400">{status.backendId}</span>
+              <span className="text-sm font-medium text-foreground">Backend ID:</span>
+              <span className="text-sm font-mono text-muted-foreground">{status.backendId}</span>
             </div>
           )}
         </div>
@@ -200,18 +200,18 @@ export function ServerGatewayConfig() {
 
       {/* Enable/Disable Toggle */}
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="text-sm font-medium text-foreground">
           Enable Gateway Connection
         </label>
         <button
           type="button"
           onClick={() => setEnabled(!enabled)}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            enabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+            enabled ? 'bg-primary' : 'bg-muted'
           }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${
               enabled ? 'translate-x-6' : 'translate-x-1'
             }`}
           />
@@ -221,7 +221,7 @@ export function ServerGatewayConfig() {
       {/* Configuration Fields */}
       <div className="space-y-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Gateway URL
           </label>
           <input
@@ -230,16 +230,16 @@ export function ServerGatewayConfig() {
             onChange={(e) => setGatewayUrl(e.target.value)}
             placeholder="http://gateway.example.com:3200"
             disabled={!enabled}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                     bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                     placeholder-gray-400 dark:placeholder-gray-500
-                     focus:ring-2 focus:ring-blue-500 focus:border-transparent
+            className="w-full px-3 py-2 border border-border rounded-lg
+                     bg-input text-foreground
+                     placeholder:text-muted-foreground
+                     focus:ring-2 focus:ring-primary focus:border-transparent
                      disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Gateway Secret
           </label>
           <input
@@ -248,19 +248,19 @@ export function ServerGatewayConfig() {
             onChange={(e) => setGatewaySecret(e.target.value)}
             placeholder={config?.gatewaySecret ? '********' : 'Enter gateway secret'}
             disabled={!enabled}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                     bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                     placeholder-gray-400 dark:placeholder-gray-500
-                     focus:ring-2 focus:ring-blue-500 focus:border-transparent
+            className="w-full px-3 py-2 border border-border rounded-lg
+                     bg-input text-foreground
+                     placeholder:text-muted-foreground
+                     focus:ring-2 focus:ring-primary focus:border-transparent
                      disabled:opacity-50 disabled:cursor-not-allowed"
           />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Leave blank to keep existing secret
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Backend Name
           </label>
           <input
@@ -269,26 +269,26 @@ export function ServerGatewayConfig() {
             onChange={(e) => setBackendName(e.target.value)}
             placeholder="My Mac"
             disabled={!enabled}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                     bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                     placeholder-gray-400 dark:placeholder-gray-500
-                     focus:ring-2 focus:ring-blue-500 focus:border-transparent
+            className="w-full px-3 py-2 border border-border rounded-lg
+                     bg-input text-foreground
+                     placeholder:text-muted-foreground
+                     focus:ring-2 focus:ring-primary focus:border-transparent
                      disabled:opacity-50 disabled:cursor-not-allowed"
           />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Optional display name for this backend
           </p>
         </div>
 
         {/* Proxy Settings */}
-        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+        <div className="pt-4 border-t border-border">
+          <h4 className="text-sm font-semibold text-foreground mb-3">
             SOCKS5 Proxy (Optional)
           </h4>
 
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Proxy URL
               </label>
               <input
@@ -298,13 +298,13 @@ export function ServerGatewayConfig() {
                 placeholder="socks5://127.0.0.1:1080"
                 disabled={!enabled}
                 data-testid="proxy-url-input"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                         bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+                className="w-full px-3 py-2 border border-border rounded-lg
+                         bg-input text-foreground
                          placeholder-gray-400 dark:placeholder-gray-500
                          focus:ring-2 focus:ring-blue-500 focus:border-transparent
                          disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 SOCKS5 proxy for connecting to Gateway
               </p>
             </div>
@@ -312,7 +312,7 @@ export function ServerGatewayConfig() {
             {proxyUrl.trim() && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Proxy Username
                   </label>
                   <input
@@ -322,8 +322,8 @@ export function ServerGatewayConfig() {
                     placeholder="Optional"
                     disabled={!enabled}
                     data-testid="proxy-username-input"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                             bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+                    className="w-full px-3 py-2 border border-border rounded-lg
+                             bg-input text-foreground
                              placeholder-gray-400 dark:placeholder-gray-500
                              focus:ring-2 focus:ring-blue-500 focus:border-transparent
                              disabled:opacity-50 disabled:cursor-not-allowed"
@@ -331,7 +331,7 @@ export function ServerGatewayConfig() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Proxy Password
                   </label>
                   <input
@@ -341,13 +341,13 @@ export function ServerGatewayConfig() {
                     placeholder={config?.proxyPassword ? '********' : 'Optional'}
                     disabled={!enabled}
                     data-testid="proxy-password-input"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                             bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+                    className="w-full px-3 py-2 border border-border rounded-lg
+                             bg-input text-foreground
                              placeholder-gray-400 dark:placeholder-gray-500
                              focus:ring-2 focus:ring-blue-500 focus:border-transparent
                              disabled:opacity-50 disabled:cursor-not-allowed"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Leave blank to keep existing password
                   </p>
                 </div>
@@ -363,7 +363,7 @@ export function ServerGatewayConfig() {
           onClick={handleSave}
           disabled={saving}
           data-testid="save-gateway-config"
-          className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg
+          className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg
                    font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? 'Saving...' : 'Save Configuration'}
@@ -373,7 +373,7 @@ export function ServerGatewayConfig() {
           <button
             onClick={handleDisconnect}
             disabled={saving}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg
+            className="px-4 py-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg
                      font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Disconnect
@@ -384,7 +384,7 @@ export function ServerGatewayConfig() {
           <button
             onClick={handleConnect}
             disabled={saving || !gatewayUrl || !config?.gatewaySecret}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg
+            className="px-4 py-2 bg-success hover:bg-success/90 text-success-foreground rounded-lg
                      font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Connect

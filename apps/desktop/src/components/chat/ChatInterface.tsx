@@ -468,11 +468,11 @@ export function ChatInterface({ sessionId }: ChatInterfaceProps) {
         {sessionPagination?.hasMore && (
           <div className="text-center py-2 mb-2">
             {sessionPagination?.isLoadingMore ? (
-              <span className="text-gray-400 text-sm">Loading older messages...</span>
+              <span className="text-muted-foreground text-sm">Loading older messages...</span>
             ) : (
               <button
                 onClick={loadMoreMessages}
-                className="text-blue-400 hover:text-blue-300 text-sm"
+                className="text-primary hover:text-primary/80 text-sm"
               >
                 Load older messages
               </button>

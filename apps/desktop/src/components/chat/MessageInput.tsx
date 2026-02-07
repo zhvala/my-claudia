@@ -591,7 +591,7 @@ export function MessageInput({
                 <span className="text-lg">{getFileIcon(entry)}</span>
                 <span className="flex-1 truncate">{entry.name}</span>
                 {entry.type === 'directory' && (
-                  <span className="text-muted-foreground">\u2192</span>
+                  <span className="text-muted-foreground">→</span>
                 )}
                 {entry.size !== undefined && (
                   <span className="text-xs text-muted-foreground">

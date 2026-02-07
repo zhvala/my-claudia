@@ -49,8 +49,8 @@ export function LoadingIndicator({ isLoading }: LoadingIndicatorProps) {
   return (
     <div className="flex items-start gap-3 px-4 py-3 animate-fade-in">
       {/* Avatar */}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-        <span className="text-white text-sm">🤖</span>
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+        <span className="text-primary text-sm">🤖</span>
       </div>
 
       {/* Loading content */}
@@ -58,9 +58,9 @@ export function LoadingIndicator({ isLoading }: LoadingIndicatorProps) {
         <div className="flex items-center gap-3">
           {/* Pulsing dots animation */}
           <div className="flex gap-1">
-            <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-            <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-            <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+            <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
 
           {/* Thinking message */}
@@ -71,7 +71,7 @@ export function LoadingIndicator({ isLoading }: LoadingIndicatorProps) {
 
         {/* Progress bar */}
         <div className="mt-2 h-1 w-48 bg-muted rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-loading-bar" />
+          <div className="h-full bg-primary rounded-full animate-loading-bar" />
         </div>
       </div>
     </div>

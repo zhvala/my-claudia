@@ -194,13 +194,13 @@ export function ServerSelector() {
   const getStatusColor = () => {
     switch (connectionStatus) {
       case 'connected':
-        return 'bg-green-500';
+        return 'bg-success';
       case 'connecting':
-        return 'bg-yellow-500 animate-pulse';
+        return 'bg-warning animate-pulse';
       case 'error':
-        return 'bg-red-500';
+        return 'bg-destructive';
       default:
-        return 'bg-gray-500';
+        return 'bg-muted-foreground';
     }
   };
 
@@ -421,7 +421,7 @@ export function ServerSelector() {
                             onChange={(e) => setProxyPassword(e.target.value)}
                             className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary mb-2"
                           />
-                          <div className="text-xs text-yellow-600 dark:text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded">
+                          <div className="text-xs text-warning bg-warning/10 p-2 rounded">
                             ⚠️ Proxy settings saved but browser WebSocket doesn't support SOCKS5 directly. Please configure system-level proxy for now.
                           </div>
                         </>
@@ -548,13 +548,13 @@ function ServerItem({
   const getConnectionStatusColor = () => {
     switch (connection?.status) {
       case 'connected':
-        return 'bg-green-500';
+        return 'bg-success';
       case 'connecting':
-        return 'bg-yellow-500 animate-pulse';
+        return 'bg-warning animate-pulse';
       case 'error':
-        return 'bg-red-500';
+        return 'bg-destructive';
       default:
-        return 'bg-gray-400';
+        return 'bg-muted-foreground';
     }
   };
 
@@ -563,36 +563,32 @@ function ServerItem({
 
   return (
     <div
-      className={`flex items-center justify-between px-3 py-2 hover:bg-muted cursor-pointer ${
+      className={`flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer ${
         isActive ? 'bg-muted' : ''
       }`}
     >
+      {/* Left side: server info (clickable) */}
       <div className="flex-1 min-w-0" onClick={onSelect}>
         <div className="flex items-center gap-2">
           {/* Per-server connection status indicator */}
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${getConnectionStatusColor()}`} title={connection?.status || 'disconnected'} />
           <span className="text-sm font-medium truncate">{server.name}</span>
-          {server.isDefault && (
-            <span className="px-1.5 py-0.5 bg-primary/20 text-primary text-xs rounded">
-              Default
-            </span>
-          )}
           {server.connectionMode === 'gateway' && (
-            <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-500 text-xs rounded" title="Via Gateway">
+            <span className="text-muted-foreground flex-shrink-0" title="Via Gateway">
               🌐
             </span>
           )}
           {server.requiresAuth && (
-            <span className="text-muted-foreground" title="Requires authentication">
+            <span className="text-muted-foreground flex-shrink-0" title="Requires authentication">
               🔐
             </span>
           )}
         </div>
-        <div className="text-xs text-muted-foreground truncate">
+        <div className="text-xs text-muted-foreground truncate ml-4">
           {server.connectionMode === 'gateway' ? (
             <>
               {server.backendId}
-              <span className="ml-1 text-blue-500/70">via {(() => { try { return new URL(server.gatewayUrl || 'http://unknown').host; } catch { return server.gatewayUrl || 'unknown'; } })()}</span>
+              <span className="ml-1 text-primary/70">via {(() => { try { return new URL(server.gatewayUrl || 'http://unknown').host; } catch { return server.gatewayUrl || 'unknown'; } })()}</span>
             </>
           ) : (
             <>
@@ -605,6 +601,13 @@ function ServerItem({
         </div>
       </div>
 
+      {/* Right side: badges and buttons */}
+      {server.isDefault && (
+        <span className="px-1.5 py-0.5 bg-primary/20 text-primary text-xs rounded flex-shrink-0">
+          Default
+        </span>
+      )}
+
       {/* Connect/Disconnect button */}
       <button
         onClick={(e) => {
@@ -616,16 +619,16 @@ function ServerItem({
           }
         }}
         disabled={isConnecting}
-        className={`px-2 py-0.5 text-xs rounded mr-1 transition-colors ${
+        className={`px-2 py-0.5 text-xs rounded flex-shrink-0 transition-colors ${
           isConnected
-            ? 'bg-green-500/20 text-green-600 hover:bg-green-500/30 dark:text-green-400'
+            ? 'bg-success/20 text-success hover:bg-success/30'
             : isConnecting
-            ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 cursor-wait'
-            : 'bg-gray-500/20 text-gray-600 hover:bg-gray-500/30 dark:text-gray-400'
+            ? 'bg-warning/20 text-warning cursor-wait'
+            : 'bg-muted text-muted-foreground hover:bg-muted/80'
         }`}
         title={isConnected ? 'Disconnect from server' : isConnecting ? 'Connecting...' : 'Connect to server'}
       >
-        {isConnected ? '断开' : isConnecting ? '连接中' : '连接'}
+        {isConnected ? 'Disconnect' : isConnecting ? 'Connecting' : 'Connect'}
       </button>
 
       {/* Menu */}

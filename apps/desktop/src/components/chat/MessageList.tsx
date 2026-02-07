@@ -204,13 +204,13 @@ function MessageItem({ message }: { message: MessageWithToolCalls }) {
     >
       {/* Tool calls section (shown before the message content for assistant) */}
       {!isUser && hasToolCalls && (
-        <div className="max-w-[80%] mb-2">
+        <div className="max-w-[80%] max-w-3xl mb-2">
           <ToolCallList toolCalls={message.toolCalls!} defaultCollapsed={true} />
         </div>
       )}
 
       <div
-        className={`max-w-[80%] rounded-lg px-4 py-2 ${
+        className={`max-w-[80%] max-w-3xl rounded-lg px-4 py-2 ${
           isUser
             ? 'bg-primary text-primary-foreground'
             : isSystem

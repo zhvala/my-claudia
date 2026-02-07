@@ -162,7 +162,7 @@ export function ProviderManager({ isOpen, onClose, inline = false }: ProviderMan
           className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
         >
           <option value="claude">Claude</option>
-          <option value="glm">GLM (智谱)</option>
+          <option value="glm">GLM (Zhipu)</option>
           <option value="openrouter">OpenRouter</option>
           <option value="cursor">Cursor</option>
           <option value="codex">Codex</option>
