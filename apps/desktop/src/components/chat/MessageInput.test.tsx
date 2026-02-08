@@ -263,7 +263,7 @@ describe('MessageInput', () => {
     it('shows hint text', () => {
       render(<MessageInput onSend={mockOnSend} />);
       expect(screen.getByText('Type / for commands')).toBeInTheDocument();
-      expect(screen.getByText('Paste images with Cmd+V')).toBeInTheDocument();
+      expect(screen.getByText(/Paste images with (Cmd|Ctrl)\+V/)).toBeInTheDocument();
     });
   });
 });

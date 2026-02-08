@@ -43,7 +43,7 @@ export function ImportDialog({ isOpen, onClose }: ImportDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const server = useServerStore((state) => state.getActiveServer());
+  const server = useServerStore((state) => state.getDefaultServer());
   const projects = useProjectStore((state) => state.projects);
 
   // Set default project when projects are loaded

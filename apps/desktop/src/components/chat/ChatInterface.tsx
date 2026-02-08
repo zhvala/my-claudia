@@ -4,6 +4,7 @@ import { MessageInput, type Attachment } from './MessageInput';
 import { ToolCallList } from './ToolCallItem';
 import { LoadingIndicator } from './LoadingIndicator';
 import { PermissionModeToggle } from './PermissionModeToggle';
+import { FontSizeSelector } from './FontSizeSelector';
 import { SystemInfoButton } from './SystemInfoButton';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -504,6 +505,7 @@ export function ChatInterface({ sessionId }: ChatInterfaceProps) {
             onModeChange={setPermissionMode}
             disabled={isLoading}
           />
+          <FontSizeSelector />
           <SystemInfoButton systemInfo={currentSystemInfo} />
         </div>
         <MessageInput

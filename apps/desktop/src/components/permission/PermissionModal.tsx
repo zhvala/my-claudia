@@ -63,7 +63,7 @@ export function PermissionModal({ request, onDecision }: PermissionModalProps) {
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50" />
 
       {/* Modal */}
-      <div data-testid="permission-dialog" className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] bg-card border border-border rounded-lg shadow-2xl z-50 overflow-hidden">
+      <div data-testid="permission-dialog" className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] max-w-[calc(100vw-2rem)] bg-card border border-border rounded-lg shadow-2xl z-50 overflow-hidden">
         {/* Timeout progress bar - only show when timeout is set */}
         {hasTimeout && (
           <div className="h-1 bg-muted">

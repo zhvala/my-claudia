@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent, ClipboardEvent, ChangeEvent, useCallback, useMemo } from 'react';
 import type { SlashCommand, FileEntry } from '@my-claudia/shared';
 import * as api from '../../services/api';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 
 export interface Attachment {
   id: string;
@@ -107,6 +108,8 @@ export function MessageInput({
   isLoading = false,
   placeholder = 'Type a message... (Enter to send)',
 }: MessageInputProps) {
+  const isMobile = useIsMobile();
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showCommands, setShowCommands] = useState(false);
@@ -692,6 +695,7 @@ export function MessageInput({
             placeholder={placeholder}
             rows={1}
             className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ fontSize: 'var(--chat-font-input, 0.875rem)' }}
           />
         </div>
 
@@ -744,7 +748,7 @@ export function MessageInput({
       {/* Hint text */}
       <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
         <span>Type / for commands{projectRoot ? ', @ to reference files' : ''}</span>
-        <span>Paste images with Cmd+V</span>
+        {!isMobile && <span>Paste images with {isMac ? 'Cmd' : 'Ctrl'}+V</span>}
       </div>
     </div>
   );

@@ -89,8 +89,8 @@ function CodeBlock({
         customStyle={{
           margin: 0,
           borderRadius: 0,
-          padding: '1rem',
-          fontSize: '0.875rem',
+          padding: '0.75rem',
+          fontSize: 'var(--chat-font-code, 0.8125rem)',
         }}
       >
         {children}
@@ -204,18 +204,18 @@ function MessageItem({ message }: { message: MessageWithToolCalls }) {
     >
       {/* Tool calls section (shown before the message content for assistant) */}
       {!isUser && hasToolCalls && (
-        <div className="max-w-[80%] max-w-3xl mb-2">
+        <div className="max-w-full md:max-w-3xl mb-2">
           <ToolCallList toolCalls={message.toolCalls!} defaultCollapsed={true} />
         </div>
       )}
 
       <div
-        className={`max-w-[80%] max-w-3xl rounded-lg px-4 py-2 ${
+        className={`rounded-lg px-3 md:px-4 py-2 ${
           isUser
-            ? 'bg-primary text-primary-foreground'
+            ? 'max-w-[85%] md:max-w-3xl bg-primary text-primary-foreground'
             : isSystem
-            ? 'bg-muted text-muted-foreground text-sm'
-            : 'bg-card text-card-foreground'
+            ? 'max-w-[85%] md:max-w-3xl bg-muted text-muted-foreground text-sm'
+            : 'max-w-full md:max-w-3xl bg-card text-card-foreground'
         }`}
       >
         {isUser ? (

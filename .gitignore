@@ -10,6 +10,7 @@ target/
 
 # Tauri
 apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/schemas/
 
 # Environment files
 .env

@@ -217,6 +217,20 @@ body {
   -webkit-app-region: no-drag;
 }
 
+/* Chat font sizing via CSS variables (set by uiStore) */
+.prose.prose-sm {
+  font-size: var(--chat-font-prose, 0.875rem);
+}
+.prose.prose-sm :where(h1):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  font-size: var(--chat-font-h1, 1.715em);
+}
+.prose.prose-sm :where(h2):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  font-size: var(--chat-font-h2, 1.43em);
+}
+.prose.prose-sm :where(h3):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  font-size: var(--chat-font-h3, 1.286em);
+}
+
 /* Hide scrollbar but keep scroll functionality */
 .scrollbar-hidden {
   scrollbar-width: none; /* Firefox */
