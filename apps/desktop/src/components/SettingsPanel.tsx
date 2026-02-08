@@ -16,12 +16,10 @@ interface SettingsPanelProps {
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const { connectionStatus, getActiveServer, isLocalConnection } = useServerStore();
+  const { connectionStatus, getActiveServer } = useServerStore();
 
   const isConnected = connectionStatus === 'connected';
   const activeServer = getActiveServer();
-  // Use backend-determined isLocalConnection (true = connecting from localhost)
-  const isLocalServer = isLocalConnection === true;
 
   if (!isOpen) return null;
 
@@ -46,46 +44,42 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         </svg>
       )
     },
-    // Only show Import, Providers, Security, and Gateway tabs when connected to local server
-    // These are server administration features not relevant for remote clients
-    ...(isLocalServer ? [
-      {
-        id: 'import' as SettingsTab,
-        label: 'Import',
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-        )
-      },
-      {
-        id: 'providers' as SettingsTab,
-        label: 'Providers',
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-        )
-      },
-      {
-        id: 'gateway' as SettingsTab,
-        label: 'Gateway',
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-          </svg>
-        )
-      },
-      {
-        id: 'security' as SettingsTab,
-        label: 'Security',
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-        )
-      }
-    ] : [])
+    {
+      id: 'import',
+      label: 'Import',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+      )
+    },
+    {
+      id: 'providers',
+      label: 'Providers',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      )
+    },
+    {
+      id: 'gateway',
+      label: 'Gateway',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+        </svg>
+      )
+    },
+    {
+      id: 'security',
+      label: 'Security',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      )
+    }
   ];
 
   return (
@@ -230,14 +224,12 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <p className="text-sm text-muted-foreground">
                   Manage authentication for remote access to this server.
                 </p>
-                {isLocalServer && isConnected ? (
+                {isConnected ? (
                   <ApiKeyManager />
                 ) : (
                   <div className="p-4 bg-secondary/50 border border-border rounded-lg">
                     <p className="text-sm text-muted-foreground">
-                      {!isConnected
-                        ? 'Connect to a server to view security settings.'
-                        : 'API Key management is only available when connected to a local server.'}
+                      Connect to a server to view security settings.
                     </p>
                   </div>
                 )}

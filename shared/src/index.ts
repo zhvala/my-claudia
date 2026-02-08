@@ -10,8 +10,6 @@ export * from './protocol/correlation.js';
 // Backend Server Types (for multi-machine support)
 // ============================================
 
-export type ConnectionMode = 'direct' | 'gateway';
-
 export interface BackendServer {
   id: string;
   name: string;           // "家里的 Mac"、"公司 Mac"
@@ -22,18 +20,9 @@ export interface BackendServer {
   // Authentication fields
   requiresAuth?: boolean; // Whether this server requires authentication (false for localhost)
   apiKey?: string;        // Stored API key for remote servers
-  clientId?: string;      // Optional client ID for gateway routing (multi-backend support)
-  // Gateway mode fields
-  connectionMode?: ConnectionMode;  // 'direct' (default) or 'gateway'
-  gatewayUrl?: string;    // Gateway address (e.g., "wss://gateway.example.com")
-  gatewaySecret?: string; // Gateway authentication secret
-  backendId?: string;     // Backend ID assigned by gateway (for gateway mode)
-  // Proxy settings (for Gateway connections)
-  proxyUrl?: string;      // SOCKS5 proxy URL (e.g., "socks5://127.0.0.1:1080")
-  proxyAuth?: {           // Proxy authentication (optional)
-    username: string;
-    password: string;
-  };
+  clientId?: string;      // Optional client ID for multi-backend direct connections
+  // Legacy fields (kept for backward compatibility with existing DB entries)
+  connectionMode?: 'direct' | 'gateway';
 }
 
 // ============================================

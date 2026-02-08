@@ -15,6 +15,7 @@ import type {
   ServerGatewayStatus
 } from '@my-claudia/shared';
 import { useServerStore } from '../stores/serverStore';
+import { useGatewayStore, isGatewayTarget, parseBackendId } from '../stores/gatewayStore';
 
 // Custom error class for authentication errors
 export class AuthError extends Error {
@@ -25,20 +26,24 @@ export class AuthError extends Error {
 }
 
 function getBaseUrl(): string {
+  const activeId = useServerStore.getState().activeServerId;
+
+  // Gateway target: route through Gateway's HTTP proxy endpoint
+  if (isGatewayTarget(activeId)) {
+    const backendId = parseBackendId(activeId!);
+    const { gatewayUrl } = useGatewayStore.getState();
+    if (!gatewayUrl) throw new Error('Gateway not configured');
+    const gwAddr = gatewayUrl.includes('://')
+      ? gatewayUrl.replace(/^ws/, 'http')
+      : `http://${gatewayUrl}`;
+    return `${gwAddr}/api/proxy/${backendId}`;
+  }
+
+  // Direct server: connect directly to backend
   const server = useServerStore.getState().getActiveServer();
   if (!server) {
     throw new Error('No server configured');
   }
-
-  // Gateway mode: route through Gateway's HTTP proxy endpoint
-  if (server.connectionMode === 'gateway' && server.gatewayUrl && server.backendId) {
-    const gwAddr = server.gatewayUrl.includes('://')
-      ? server.gatewayUrl.replace(/^ws/, 'http')
-      : `http://${server.gatewayUrl}`;
-    return `${gwAddr}/api/proxy/${server.backendId}`;
-  }
-
-  // Direct mode: connect directly to backend
   const address = server.address.includes('://')
     ? server.address
     : `http://${server.address}`;
@@ -47,25 +52,28 @@ function getBaseUrl(): string {
 
 // Get authentication header for the active server
 function getAuthHeaders(): HeadersInit {
+  const activeId = useServerStore.getState().activeServerId;
+
+  // Gateway target: use gatewaySecret:apiKey compound auth
+  if (isGatewayTarget(activeId)) {
+    const backendId = parseBackendId(activeId!);
+    const { gatewaySecret, backendApiKeys } = useGatewayStore.getState();
+    const apiKey = backendApiKeys[backendId];
+    if (gatewaySecret && apiKey) {
+      return {
+        'Authorization': `Bearer ${gatewaySecret}:${apiKey}`
+      };
+    }
+    return {};
+  }
+
+  // Direct server: use apiKey
   const server = useServerStore.getState().getActiveServer();
   if (!server?.apiKey) {
     return {};
   }
-
-  // Gateway mode: use gatewaySecret:apiKey compound auth
-  if (server.connectionMode === 'gateway' && server.gatewaySecret) {
-    return {
-      'Authorization': `Bearer ${server.gatewaySecret}:${server.apiKey}`
-    };
-  }
-
-  // Direct mode: clientId:apiKey or just apiKey
-  const token = server.clientId
-    ? `${server.clientId}:${server.apiKey}`
-    : server.apiKey;
-
   return {
-    'Authorization': `Bearer ${token}`
+    'Authorization': `Bearer ${server.apiKey}`
   };
 }
 
@@ -95,11 +103,56 @@ async function fetchApi<T>(
 }
 
 // ============================================
+// Local API: always targets the local server
+// Used by Settings, data loader, and admin features
+// ============================================
+
+function getLocalBaseUrl(): string {
+  const server = useServerStore.getState().getDefaultServer();
+  const address = server?.address || 'localhost:3100';
+  return address.includes('://') ? address : `http://${address}`;
+}
+
+function getLocalAuthHeaders(): HeadersInit {
+  const server = useServerStore.getState().getDefaultServer();
+  if (!server?.apiKey) {
+    return {};
+  }
+  return {
+    'Authorization': `Bearer ${server.apiKey}`
+  };
+}
+
+async function fetchLocalApi<T>(
+  path: string,
+  options?: RequestInit
+): Promise<ApiResponse<T>> {
+  const baseUrl = getLocalBaseUrl();
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...getLocalAuthHeaders(),
+      ...options?.headers
+    }
+  });
+
+  if (response.status === 401) {
+    throw new AuthError('Authentication required');
+  }
+  if (response.status === 403) {
+    throw new AuthError('Access forbidden');
+  }
+
+  return response.json();
+}
+
+// ============================================
 // Projects API
 // ============================================
 
 export async function getProjects(): Promise<Project[]> {
-  const result = await fetchApi<Project[]>('/api/projects');
+  const result = await fetchLocalApi<Project[]>('/api/projects');
   if (!result.success || !result.data) {
     throw new Error(result.error?.message || 'Failed to fetch projects');
   }
@@ -112,7 +165,7 @@ export async function createProject(data: {
   providerId?: string;
   rootPath?: string;
 }): Promise<Project> {
-  const result = await fetchApi<Project>('/api/projects', {
+  const result = await fetchLocalApi<Project>('/api/projects', {
     method: 'POST',
     body: JSON.stringify(data)
   });
@@ -126,7 +179,7 @@ export async function updateProject(
   id: string,
   data: Partial<Project>
 ): Promise<void> {
-  const result = await fetchApi<void>(`/api/projects/${id}`, {
+  const result = await fetchLocalApi<void>(`/api/projects/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   });
@@ -136,7 +189,7 @@ export async function updateProject(
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  const result = await fetchApi<void>(`/api/projects/${id}`, {
+  const result = await fetchLocalApi<void>(`/api/projects/${id}`, {
     method: 'DELETE'
   });
   if (!result.success) {
@@ -150,7 +203,7 @@ export async function deleteProject(id: string): Promise<void> {
 
 export async function getSessions(projectId?: string): Promise<Session[]> {
   const query = projectId ? `?projectId=${projectId}` : '';
-  const result = await fetchApi<Session[]>(`/api/sessions${query}`);
+  const result = await fetchLocalApi<Session[]>(`/api/sessions${query}`);
   if (!result.success || !result.data) {
     throw new Error(result.error?.message || 'Failed to fetch sessions');
   }
@@ -162,7 +215,7 @@ export async function createSession(data: {
   name?: string;
   providerId?: string;
 }): Promise<Session> {
-  const result = await fetchApi<Session>('/api/sessions', {
+  const result = await fetchLocalApi<Session>('/api/sessions', {
     method: 'POST',
     body: JSON.stringify(data)
   });
@@ -176,7 +229,7 @@ export async function updateSession(
   id: string,
   data: Partial<Session>
 ): Promise<void> {
-  const result = await fetchApi<void>(`/api/sessions/${id}`, {
+  const result = await fetchLocalApi<void>(`/api/sessions/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   });
@@ -186,7 +239,7 @@ export async function updateSession(
 }
 
 export async function deleteSession(id: string): Promise<void> {
-  const result = await fetchApi<void>(`/api/sessions/${id}`, {
+  const result = await fetchLocalApi<void>(`/api/sessions/${id}`, {
     method: 'DELETE'
   });
   if (!result.success) {
@@ -233,7 +286,7 @@ export async function getSessionMessages(
 // ============================================
 
 export async function getProviders(): Promise<ProviderConfig[]> {
-  const result = await fetchApi<ProviderConfig[]>('/api/providers');
+  const result = await fetchLocalApi<ProviderConfig[]>('/api/providers');
   if (!result.success || !result.data) {
     throw new Error(result.error?.message || 'Failed to fetch providers');
   }
@@ -247,7 +300,7 @@ export async function createProvider(data: {
   env?: Record<string, string>;
   isDefault?: boolean;
 }): Promise<ProviderConfig> {
-  const result = await fetchApi<ProviderConfig>('/api/providers', {
+  const result = await fetchLocalApi<ProviderConfig>('/api/providers', {
     method: 'POST',
     body: JSON.stringify(data)
   });
@@ -261,7 +314,7 @@ export async function updateProvider(
   id: string,
   data: Partial<ProviderConfig>
 ): Promise<void> {
-  const result = await fetchApi<void>(`/api/providers/${id}`, {
+  const result = await fetchLocalApi<void>(`/api/providers/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   });
@@ -271,7 +324,7 @@ export async function updateProvider(
 }
 
 export async function deleteProvider(id: string): Promise<void> {
-  const result = await fetchApi<void>(`/api/providers/${id}`, {
+  const result = await fetchLocalApi<void>(`/api/providers/${id}`, {
     method: 'DELETE'
   });
   if (!result.success) {
@@ -280,7 +333,7 @@ export async function deleteProvider(id: string): Promise<void> {
 }
 
 export async function setDefaultProvider(id: string): Promise<void> {
-  const result = await fetchApi<void>(`/api/providers/${id}/set-default`, {
+  const result = await fetchLocalApi<void>(`/api/providers/${id}/set-default`, {
     method: 'POST'
   });
   if (!result.success) {
@@ -293,7 +346,7 @@ export async function getProviderCommands(
   projectRoot?: string
 ): Promise<SlashCommand[]> {
   const query = projectRoot ? `?projectRoot=${encodeURIComponent(projectRoot)}` : '';
-  const result = await fetchApi<SlashCommand[]>(`/api/providers/${providerId}/commands${query}`);
+  const result = await fetchLocalApi<SlashCommand[]>(`/api/providers/${providerId}/commands${query}`);
   if (!result.success || !result.data) {
     throw new Error(result.error?.message || 'Failed to fetch provider commands');
   }
@@ -305,7 +358,7 @@ export async function getProviderTypeCommands(
   projectRoot?: string
 ): Promise<SlashCommand[]> {
   const query = projectRoot ? `?projectRoot=${encodeURIComponent(projectRoot)}` : '';
-  const result = await fetchApi<SlashCommand[]>(`/api/providers/type/${providerType}/commands${query}`);
+  const result = await fetchLocalApi<SlashCommand[]>(`/api/providers/type/${providerType}/commands${query}`);
   if (!result.success || !result.data) {
     throw new Error(result.error?.message || 'Failed to fetch provider type commands');
   }
@@ -414,7 +467,7 @@ export async function verifyApiKey(address: string, apiKey: string): Promise<boo
  * We make a direct fetch call without authentication headers to support initial API Key fetch.
  */
 export async function getApiKeyInfo(): Promise<ApiKeyInfo> {
-  const baseUrl = getBaseUrl();
+  const baseUrl = getLocalBaseUrl();
   const response = await fetch(`${baseUrl}/api/auth/key`, {
     headers: {
       'Content-Type': 'application/json'
@@ -437,7 +490,7 @@ export async function getApiKeyInfo(): Promise<ApiKeyInfo> {
  * This will disconnect all remote clients
  */
 export async function regenerateApiKey(): Promise<ApiKeyInfo> {
-  const result = await fetchApi<ApiKeyInfo>('/api/auth/key/regenerate', {
+  const result = await fetchLocalApi<ApiKeyInfo>('/api/auth/key/regenerate', {
     method: 'POST'
   });
   if (!result.success || !result.data) {
@@ -454,7 +507,7 @@ export async function regenerateApiKey(): Promise<ApiKeyInfo> {
  * Get server Gateway configuration (local only)
  */
 export async function getServerGatewayConfig(): Promise<ServerGatewayConfig> {
-  const result = await fetchApi<ServerGatewayConfig>('/api/server/gateway/config');
+  const result = await fetchLocalApi<ServerGatewayConfig>('/api/server/gateway/config');
   if (!result.success || !result.data) {
     throw new Error(result.error?.message || 'Failed to get gateway config');
   }
@@ -470,7 +523,7 @@ export async function updateServerGatewayConfig(config: {
   gatewaySecret?: string;
   backendName?: string;
 }): Promise<ServerGatewayConfig> {
-  const result = await fetchApi<ServerGatewayConfig>('/api/server/gateway/config', {
+  const result = await fetchLocalApi<ServerGatewayConfig>('/api/server/gateway/config', {
     method: 'PUT',
     body: JSON.stringify(config)
   });
@@ -484,7 +537,7 @@ export async function updateServerGatewayConfig(config: {
  * Get server Gateway status (local only)
  */
 export async function getServerGatewayStatus(): Promise<ServerGatewayStatus> {
-  const result = await fetchApi<ServerGatewayStatus>('/api/server/gateway/status');
+  const result = await fetchLocalApi<ServerGatewayStatus>('/api/server/gateway/status');
   if (!result.success || !result.data) {
     throw new Error(result.error?.message || 'Failed to get gateway status');
   }
@@ -495,7 +548,7 @@ export async function getServerGatewayStatus(): Promise<ServerGatewayStatus> {
  * Connect server to Gateway (local only)
  */
 export async function connectServerToGateway(): Promise<{ message: string }> {
-  const result = await fetchApi<{ message: string }>('/api/server/gateway/connect', {
+  const result = await fetchLocalApi<{ message: string }>('/api/server/gateway/connect', {
     method: 'POST'
   });
   if (!result.success || !result.data) {
@@ -508,7 +561,7 @@ export async function connectServerToGateway(): Promise<{ message: string }> {
  * Disconnect server from Gateway (local only)
  */
 export async function disconnectServerFromGateway(): Promise<{ message: string }> {
-  const result = await fetchApi<{ message: string }>('/api/server/gateway/disconnect', {
+  const result = await fetchLocalApi<{ message: string }>('/api/server/gateway/disconnect', {
     method: 'POST'
   });
   if (!result.success || !result.data) {
@@ -522,7 +575,7 @@ export async function disconnectServerFromGateway(): Promise<{ message: string }
 // ============================================
 
 export async function getServers(): Promise<BackendServer[]> {
-  const result = await fetchApi<BackendServer[]>('/api/servers');
+  const result = await fetchLocalApi<BackendServer[]>('/api/servers');
   if (!result.success || !result.data) {
     throw new Error(result.error?.message || 'Failed to fetch servers');
   }
@@ -530,7 +583,7 @@ export async function getServers(): Promise<BackendServer[]> {
 }
 
 export async function createServer(data: Omit<BackendServer, 'id' | 'createdAt' | 'lastConnected'>): Promise<BackendServer> {
-  const result = await fetchApi<BackendServer>('/api/servers', {
+  const result = await fetchLocalApi<BackendServer>('/api/servers', {
     method: 'POST',
     body: JSON.stringify(data)
   });
@@ -544,7 +597,7 @@ export async function updateServer(
   id: string,
   data: Partial<Omit<BackendServer, 'id' | 'createdAt'>>
 ): Promise<void> {
-  const result = await fetchApi<void>(`/api/servers/${id}`, {
+  const result = await fetchLocalApi<void>(`/api/servers/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   });
@@ -554,7 +607,7 @@ export async function updateServer(
 }
 
 export async function deleteServer(id: string): Promise<void> {
-  const result = await fetchApi<void>(`/api/servers/${id}`, {
+  const result = await fetchLocalApi<void>(`/api/servers/${id}`, {
     method: 'DELETE'
   });
   if (!result.success) {

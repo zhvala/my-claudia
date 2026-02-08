@@ -1,17 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useServerStore, type ServerConnection } from '../stores/serverStore';
+import { useGatewayStore, toGatewayServerId, type BackendAuthStatus } from '../stores/gatewayStore';
 import { useServerManager } from '../hooks/useServerManager';
 import { useConnection } from '../contexts/ConnectionContext';
-import type { BackendServer, ConnectionMode } from '@my-claudia/shared';
+import type { BackendServer, GatewayBackendInfo } from '@my-claudia/shared';
 import { verifyApiKey } from '../services/api';
 
 // Helper to check if an address is localhost
 function isLocalAddress(address: string): boolean {
   return address.startsWith('localhost') || address.startsWith('127.0.0.1');
 }
-
-type ConnectionType = 'direct' | 'gateway';
 
 export function ServerSelector() {
   const {
@@ -22,6 +21,18 @@ export function ServerSelector() {
     connectionError,
     setActiveServer
   } = useServerStore();
+
+  const {
+    gatewayUrl,
+    gatewaySecret,
+    isConnected: isGatewayConnected,
+    discoveredBackends,
+    backendAuthStatus,
+    backendApiKeys,
+    setGatewayConfig,
+    setBackendApiKey,
+    clearGateway
+  } = useGatewayStore();
 
   const {
     addServer,
@@ -44,151 +55,146 @@ export function ServerSelector() {
   const [newClientId, setNewClientId] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
-  // Gateway mode fields
-  const [connectionType, setConnectionType] = useState<ConnectionType>('direct');
-  const [gatewayUrl, setGatewayUrl] = useState('');
-  const [gatewaySecret, setGatewaySecret] = useState('');
-  const [backendId, setBackendId] = useState('');
-  // Proxy settings
-  const [proxyUrl, setProxyUrl] = useState('');
-  const [proxyUsername, setProxyUsername] = useState('');
-  const [proxyPassword, setProxyPassword] = useState('');
 
-  const activeServer = servers.find((s) => s.id === activeServerId);
+  // Gateway config form
+  const [showGatewayForm, setShowGatewayForm] = useState(false);
+  const [gwUrl, setGwUrl] = useState('');
+  const [gwSecret, setGwSecret] = useState('');
+
+  // Backend API key prompt
+  const [apiKeyPromptBackend, setApiKeyPromptBackend] = useState<GatewayBackendInfo | null>(null);
+  const [backendApiKeyInput, setBackendApiKeyInput] = useState('');
+
+  // Filter out legacy gateway-mode servers
+  const directServers = servers.filter(s => s.connectionMode !== 'gateway');
+
+  const activeServer = useServerStore.getState().getActiveServer();
+  const isGatewayConfigured = !!gatewayUrl && !!gatewaySecret;
 
   const handleStartEdit = (server: BackendServer) => {
     setEditingServer(server);
     setNewServerName(server.name);
-    setConnectionType(server.connectionMode || 'direct');
-
-    if (server.connectionMode === 'gateway') {
-      setGatewayUrl(server.gatewayUrl || '');
-      setGatewaySecret(server.gatewaySecret || '');
-      setBackendId(server.backendId || '');
-      setNewApiKey(''); // Don't pre-fill for security
-      // Load proxy settings
-      setProxyUrl(server.proxyUrl || '');
-      setProxyUsername(server.proxyAuth?.username || '');
-      setProxyPassword(''); // Don't pre-fill for security
-    } else {
-      setNewServerAddress(server.address);
-      setNewClientId(server.clientId || '');
-      setNewApiKey(''); // Don't pre-fill for security
-    }
-
+    setNewServerAddress(server.address);
+    setNewClientId(server.clientId || '');
+    setNewApiKey('');
     setShowAddForm(true);
   };
 
   const handleAddServer = async () => {
-    if (!newServerName.trim()) return;
+    if (!newServerName.trim() || !newServerAddress.trim()) {
+      setVerifyError('Name and address are required');
+      return;
+    }
 
-    // Validate based on connection type
-    if (connectionType === 'gateway') {
-      // Gateway mode validation
-      if (!gatewayUrl.trim()) {
-        setVerifyError('Gateway URL is required');
-        return;
-      }
-      if (!gatewaySecret.trim() && !editingServer) {
-        setVerifyError('Gateway Secret is required');
-        return;
-      }
-      if (!backendId.trim()) {
-        setVerifyError('Backend ID is required');
-        return;
-      }
-      if (!newApiKey.trim() && !editingServer?.apiKey) {
-        setVerifyError('Backend API Key is required');
-        return;
-      }
+    const address = newServerAddress.trim();
+    const needsAuth = !isLocalAddress(address);
 
-      const serverData: any = {
-        name: newServerName.trim(),
-        address: gatewayUrl.trim(),
-        connectionMode: 'gateway' as ConnectionMode,
-        gatewayUrl: gatewayUrl.trim(),
-        gatewaySecret: gatewaySecret.trim() || editingServer?.gatewaySecret,
-        backendId: backendId.trim(),
-        apiKey: newApiKey.trim() || editingServer?.apiKey
-      };
+    // Verify API key for remote servers
+    if (needsAuth && newApiKey.trim()) {
+      setIsVerifying(true);
+      setVerifyError(null);
 
-      // Add proxy settings if provided
-      if (proxyUrl.trim()) {
-        serverData.proxyUrl = proxyUrl.trim();
-        if (proxyUsername.trim() || proxyPassword.trim()) {
-          serverData.proxyAuth = {
-            username: proxyUsername.trim() || editingServer?.proxyAuth?.username,
-            password: proxyPassword.trim() || editingServer?.proxyAuth?.password
-          };
-        }
-      }
-
-      if (editingServer) {
-        updateServer(editingServer.id, serverData);
-      } else {
-        addServer({ ...serverData, isDefault: servers.length === 0 });
-      }
-    } else {
-      // Direct mode validation
-      if (!newServerAddress.trim()) {
-        setVerifyError('Server address is required');
-        return;
-      }
-
-      const address = newServerAddress.trim();
-      const needsAuth = !isLocalAddress(address);
-
-      // Verify API key for remote servers (only when adding or changing API key)
-      if (needsAuth && newApiKey.trim()) {
-        setIsVerifying(true);
-        setVerifyError(null);
-
-        try {
-          const valid = await verifyApiKey(address, newApiKey.trim());
-          if (!valid) {
-            setVerifyError('Invalid API Key');
-            setIsVerifying(false);
-            return;
-          }
-        } catch {
-          setVerifyError('Failed to connect to server');
+      try {
+        const valid = await verifyApiKey(address, newApiKey.trim());
+        if (!valid) {
+          setVerifyError('Invalid API Key');
           setIsVerifying(false);
           return;
         }
-
+      } catch {
+        setVerifyError('Failed to connect to server');
         setIsVerifying(false);
+        return;
       }
 
-      const serverData = {
-        name: newServerName.trim(),
-        address,
-        apiKey: newApiKey.trim() || editingServer?.apiKey,
-        clientId: newClientId.trim() || undefined,
-        connectionMode: 'direct' as ConnectionMode
-      };
-
-      if (editingServer) {
-        updateServer(editingServer.id, serverData);
-      } else {
-        addServer({ ...serverData, isDefault: servers.length === 0 });
-      }
+      setIsVerifying(false);
     }
 
-    // Reset form
+    const serverData = {
+      name: newServerName.trim(),
+      address,
+      apiKey: newApiKey.trim() || editingServer?.apiKey,
+      clientId: newClientId.trim() || undefined
+    };
+
+    if (editingServer) {
+      updateServer(editingServer.id, serverData);
+    } else {
+      addServer({ ...serverData, isDefault: directServers.length === 0 });
+    }
+
+    resetForm();
+  };
+
+  const resetForm = () => {
     setEditingServer(null);
     setNewServerName('');
     setNewServerAddress('');
     setNewApiKey('');
     setNewClientId('');
-    setGatewayUrl('');
-    setGatewaySecret('');
-    setBackendId('');
-    setProxyUrl('');
-    setProxyUsername('');
-    setProxyPassword('');
-    setConnectionType('direct');
     setVerifyError(null);
     setShowAddForm(false);
+  };
+
+  const handleSaveGateway = () => {
+    if (!gwUrl.trim()) return;
+    // When editing, keep old secret if new one is blank
+    const newSecret = gwSecret.trim() || gatewaySecret || '';
+    if (!newSecret) return;
+    setGatewayConfig(gwUrl.trim(), newSecret);
+    setShowGatewayForm(false);
+    setGwUrl('');
+    setGwSecret('');
+  };
+
+  const handleEditGateway = () => {
+    setGwUrl(gatewayUrl || '');
+    setGwSecret('');
+    setShowGatewayForm(true);
+  };
+
+  const handleRemoveGateway = () => {
+    // Switch away from gateway backend if active
+    if (activeServerId?.startsWith('gw:')) {
+      const defaultServer = directServers.find(s => s.isDefault) || directServers[0];
+      if (defaultServer) {
+        setActiveServer(defaultServer.id);
+      }
+    }
+    clearGateway();
+    setShowGatewayForm(false);
+  };
+
+  const handleBackendClick = (backend: GatewayBackendInfo) => {
+    if (!backend.online) return;
+
+    const apiKey = backendApiKeys[backend.backendId];
+    if (apiKey) {
+      // Has stored API key -- switch to this backend
+      const serverId = toGatewayServerId(backend.backendId);
+      setActiveServer(serverId);
+      connectServer(serverId);
+      setIsOpen(false);
+    } else {
+      // No API key -- prompt for it
+      setApiKeyPromptBackend(backend);
+      setBackendApiKeyInput('');
+    }
+  };
+
+  const handleSaveBackendApiKey = () => {
+    if (!apiKeyPromptBackend || !backendApiKeyInput.trim()) return;
+
+    setBackendApiKey(apiKeyPromptBackend.backendId, backendApiKeyInput.trim());
+
+    // Connect to this backend
+    const serverId = toGatewayServerId(apiKeyPromptBackend.backendId);
+    setActiveServer(serverId);
+    connectServer(serverId);
+
+    setApiKeyPromptBackend(null);
+    setBackendApiKeyInput('');
+    setIsOpen(false);
   };
 
   const getStatusColor = () => {
@@ -246,7 +252,7 @@ export function ServerSelector() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-[calc(100vw-1rem)] md:w-72 max-w-72 bg-card border border-border rounded-lg shadow-xl z-50">
+        <div className="fixed inset-x-2 top-14 md:absolute md:inset-x-auto md:top-full md:left-0 mt-1 md:w-80 bg-card border border-border rounded-lg shadow-xl z-50">
           {/* Status */}
           <div className="px-3 py-2 border-b border-border">
             <div className="flex items-center gap-2 text-sm">
@@ -255,9 +261,9 @@ export function ServerSelector() {
             </div>
           </div>
 
-          {/* Server List - with max-height for scrolling */}
-          <div className="max-h-60 overflow-y-auto">
-            {servers.map((server) => (
+          {/* Server List (direct servers only) */}
+          <div className="max-h-40 overflow-y-auto">
+            {directServers.map((server) => (
               <ServerItem
                 key={server.id}
                 server={server}
@@ -272,39 +278,15 @@ export function ServerSelector() {
                 onDelete={() => deleteServer(server.id)}
                 onConnect={() => connectServer(server.id)}
                 onDisconnect={() => disconnectServer(server.id)}
-                canDelete={servers.length > 1}
+                canDelete={directServers.length > 1}
               />
             ))}
           </div>
 
-          {/* Add Server */}
+          {/* Add Direct Server */}
           <div className="border-t border-border p-2 bg-card">
             {showAddForm ? (
               <div className="space-y-2">
-                {/* Connection Type Toggle */}
-                <div className="flex gap-1 p-0.5 bg-muted rounded">
-                  <button
-                    onClick={() => setConnectionType('direct')}
-                    className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                      connectionType === 'direct'
-                        ? 'bg-background shadow text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    Direct
-                  </button>
-                  <button
-                    onClick={() => setConnectionType('gateway')}
-                    className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                      connectionType === 'gateway'
-                        ? 'bg-background shadow text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    Gateway
-                  </button>
-                </div>
-
                 <input
                   type="text"
                   placeholder="Server name"
@@ -312,129 +294,38 @@ export function ServerSelector() {
                   onChange={(e) => setNewServerName(e.target.value)}
                   className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
                 />
-
-                {connectionType === 'direct' ? (
+                <input
+                  type="text"
+                  placeholder="Address (e.g., 192.168.1.100:3100)"
+                  value={newServerAddress}
+                  onChange={(e) => {
+                    setNewServerAddress(e.target.value);
+                    setVerifyError(null);
+                  }}
+                  className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
+                />
+                {newServerAddress && !isLocalAddress(newServerAddress) && (
                   <>
                     <input
                       type="text"
-                      placeholder="Address (e.g., 192.168.1.100:3100)"
-                      value={newServerAddress}
-                      onChange={(e) => {
-                        setNewServerAddress(e.target.value);
-                        setVerifyError(null);
-                      }}
-                      className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
-                    />
-                    {/* Show Client ID and API Key input for non-localhost addresses */}
-                    {newServerAddress && !isLocalAddress(newServerAddress) && (
-                      <>
-                        <input
-                          type="text"
-                          placeholder="Client ID (optional)"
-                          value={newClientId}
-                          onChange={(e) => setNewClientId(e.target.value)}
-                          className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
-                        />
-                        <input
-                          type="password"
-                          placeholder={editingServer ? "API Key (leave blank to keep)" : "API Key"}
-                          value={newApiKey}
-                          onChange={(e) => {
-                            setNewApiKey(e.target.value);
-                            setVerifyError(null);
-                          }}
-                          className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
-                          data-testid="api-key-input"
-                        />
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {/* Gateway mode fields */}
-                    <input
-                      type="text"
-                      placeholder="Gateway URL (e.g., https://gateway.example.com)"
-                      value={gatewayUrl}
-                      onChange={(e) => {
-                        setGatewayUrl(e.target.value);
-                        setVerifyError(null);
-                      }}
+                      placeholder="Client ID (optional)"
+                      value={newClientId}
+                      onChange={(e) => setNewClientId(e.target.value)}
                       className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
                     />
                     <input
                       type="password"
-                      placeholder={editingServer ? "Gateway Secret (leave blank to keep)" : "Gateway Secret"}
-                      value={gatewaySecret}
-                      onChange={(e) => {
-                        setGatewaySecret(e.target.value);
-                        setVerifyError(null);
-                      }}
-                      className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Backend ID (from Gateway)"
-                      value={backendId}
-                      onChange={(e) => {
-                        setBackendId(e.target.value);
-                        setVerifyError(null);
-                      }}
-                      className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
-                    />
-                    <input
-                      type="password"
-                      placeholder={editingServer ? "Backend API Key (leave blank to keep)" : "Backend API Key"}
+                      placeholder={editingServer ? "API Key (leave blank to keep)" : "API Key"}
                       value={newApiKey}
                       onChange={(e) => {
                         setNewApiKey(e.target.value);
                         setVerifyError(null);
                       }}
                       className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
+                      data-testid="api-key-input"
                     />
-
-                    {/* Proxy Settings */}
-                    <div className="pt-2 border-t border-border">
-                      <div className="text-xs font-medium text-muted-foreground mb-2">
-                        SOCKS5 Proxy (Optional)
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Proxy URL (e.g., socks5://127.0.0.1:1080)"
-                        value={proxyUrl}
-                        onChange={(e) => setProxyUrl(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary mb-2"
-                      />
-                      {proxyUrl.trim() && (
-                        <>
-                          <input
-                            type="text"
-                            placeholder="Proxy Username (optional)"
-                            value={proxyUsername}
-                            onChange={(e) => setProxyUsername(e.target.value)}
-                            className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary mb-2"
-                          />
-                          <input
-                            type="password"
-                            placeholder={editingServer?.proxyAuth ? "Proxy Password (leave blank to keep)" : "Proxy Password (optional)"}
-                            value={proxyPassword}
-                            onChange={(e) => setProxyPassword(e.target.value)}
-                            className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary mb-2"
-                          />
-                          <div className="text-xs text-warning bg-warning/10 p-2 rounded">
-                            ⚠️ Proxy settings saved but browser WebSocket doesn't support SOCKS5 directly. Please configure system-level proxy for now.
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="text-xs text-muted-foreground">
-                      Connect to a remote backend through Gateway
-                    </div>
                   </>
                 )}
-
-                {/* Show verification error */}
                 {verifyError && (
                   <div className="text-xs text-destructive">{verifyError}</div>
                 )}
@@ -448,22 +339,7 @@ export function ServerSelector() {
                     {isVerifying ? 'Verifying...' : (editingServer ? 'Save' : 'Add')}
                   </button>
                   <button
-                    onClick={() => {
-                      setShowAddForm(false);
-                      setEditingServer(null);
-                      setNewServerName('');
-                      setNewServerAddress('');
-                      setNewApiKey('');
-                      setNewClientId('');
-                      setGatewayUrl('');
-                      setGatewaySecret('');
-                      setBackendId('');
-                      setProxyUrl('');
-                      setProxyUsername('');
-                      setProxyPassword('');
-                      setConnectionType('direct');
-                      setVerifyError(null);
-                    }}
+                    onClick={resetForm}
                     className="flex-1 px-2 py-1.5 bg-secondary hover:bg-muted rounded text-sm"
                   >
                     Cancel
@@ -475,21 +351,157 @@ export function ServerSelector() {
                 onClick={() => setShowAddForm(true)}
                 className="w-full text-left px-2 py-1.5 rounded text-sm text-muted-foreground hover:bg-muted hover:text-foreground flex items-center gap-2"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 Add Server
               </button>
+            )}
+          </div>
+
+          {/* Gateway Section */}
+          <div className="border-t border-border">
+            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider bg-secondary/50 flex items-center justify-between">
+              <span>Gateway</span>
+              {isGatewayConfigured && (
+                <div className="flex items-center gap-1">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isGatewayConnected ? 'bg-success' : 'bg-destructive'}`} />
+                  <span className="text-[10px] normal-case font-normal">
+                    {isGatewayConnected ? 'Connected' : 'Disconnected'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {showGatewayForm ? (
+              /* Gateway config form */
+              <div className="p-2 space-y-2">
+                <input
+                  type="text"
+                  placeholder="Gateway URL (e.g., 192.168.2.1:3200)"
+                  value={gwUrl}
+                  onChange={(e) => setGwUrl(e.target.value)}
+                  className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
+                />
+                <input
+                  type="password"
+                  placeholder={isGatewayConfigured ? "Gateway Secret (leave blank to keep)" : "Gateway Secret"}
+                  value={gwSecret}
+                  onChange={(e) => setGwSecret(e.target.value)}
+                  className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveGateway}
+                    className="flex-1 px-2 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded text-sm"
+                  >
+                    {isGatewayConfigured ? 'Update' : 'Connect'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowGatewayForm(false);
+                      setGwUrl('');
+                      setGwSecret('');
+                    }}
+                    className="flex-1 px-2 py-1.5 bg-secondary hover:bg-muted rounded text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {isGatewayConfigured && (
+                  <button
+                    onClick={handleRemoveGateway}
+                    className="w-full px-2 py-1 text-xs text-destructive hover:bg-destructive/10 rounded"
+                  >
+                    Remove Gateway
+                  </button>
+                )}
+              </div>
+            ) : apiKeyPromptBackend ? (
+              /* Backend API key prompt */
+              <div className="p-2 space-y-2">
+                <div className="text-xs text-muted-foreground">
+                  Enter API key for <span className="font-medium text-foreground">{apiKeyPromptBackend.name}</span>
+                </div>
+                <input
+                  type="password"
+                  placeholder="Backend API Key"
+                  value={backendApiKeyInput}
+                  onChange={(e) => setBackendApiKeyInput(e.target.value)}
+                  className="w-full px-2 py-1.5 bg-input border border-border rounded text-sm focus:outline-none focus:border-primary"
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveBackendApiKey()}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveBackendApiKey}
+                    disabled={!backendApiKeyInput.trim()}
+                    className="flex-1 px-2 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded text-sm disabled:opacity-50"
+                  >
+                    Connect
+                  </button>
+                  <button
+                    onClick={() => {
+                      setApiKeyPromptBackend(null);
+                      setBackendApiKeyInput('');
+                    }}
+                    className="flex-1 px-2 py-1.5 bg-secondary hover:bg-muted rounded text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : !isGatewayConfigured ? (
+              /* Not configured */
+              <div className="p-2">
+                <button
+                  onClick={() => setShowGatewayForm(true)}
+                  className="w-full text-left px-2 py-1.5 rounded text-sm text-muted-foreground hover:bg-muted hover:text-foreground flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                  </svg>
+                  Connect to Gateway
+                </button>
+              </div>
+            ) : (
+              /* Connected -- show backends */
+              <div>
+                {/* Gateway info + edit */}
+                <div className="px-3 py-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="truncate">{gatewayUrl}</span>
+                  <button
+                    onClick={handleEditGateway}
+                    className="text-xs text-primary hover:text-primary/80 flex-shrink-0 ml-2"
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                {/* Backend list */}
+                {isGatewayConnected && discoveredBackends.length > 0 ? (
+                  <div className="max-h-40 overflow-y-auto">
+                    {discoveredBackends.map((backend) => (
+                      <GatewayBackendItem
+                        key={backend.backendId}
+                        backend={backend}
+                        isActive={activeServerId === toGatewayServerId(backend.backendId)}
+                        authStatus={backendAuthStatus[backend.backendId]}
+                        hasApiKey={!!backendApiKeys[backend.backendId]}
+                        onClick={() => handleBackendClick(backend)}
+                      />
+                    ))}
+                  </div>
+                ) : isGatewayConnected ? (
+                  <div className="px-3 py-2 text-xs text-muted-foreground text-center">
+                    No backends available
+                  </div>
+                ) : (
+                  <div className="px-3 py-2 text-xs text-muted-foreground text-center">
+                    Connecting to gateway...
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -502,6 +514,56 @@ export function ServerSelector() {
           onClick={() => setIsOpen(false)}
         />
       )}
+    </div>
+  );
+}
+
+function GatewayBackendItem({
+  backend,
+  isActive,
+  authStatus,
+  hasApiKey,
+  onClick
+}: {
+  backend: GatewayBackendInfo;
+  isActive: boolean;
+  authStatus?: BackendAuthStatus;
+  hasApiKey: boolean;
+  onClick: () => void;
+}) {
+  const statusColor = backend.online
+    ? authStatus === 'authenticated' ? 'bg-success' : 'bg-blue-400'
+    : 'bg-muted-foreground';
+
+  return (
+    <div
+      className={`px-3 py-2 hover:bg-muted cursor-pointer ${isActive ? 'bg-muted' : ''} ${!backend.online ? 'opacity-50' : ''}`}
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-2">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusColor}`} />
+        <span className="text-sm truncate flex-1 min-w-0">{backend.name}</span>
+        {isActive && (
+          <span className="px-1.5 py-0.5 bg-primary/20 text-primary text-xs rounded flex-shrink-0">
+            Active
+          </span>
+        )}
+        {!backend.online && (
+          <span className="text-xs text-muted-foreground flex-shrink-0">Offline</span>
+        )}
+        {backend.online && !hasApiKey && (
+          <span className="text-xs text-muted-foreground flex-shrink-0">No key</span>
+        )}
+        {backend.online && hasApiKey && authStatus === 'authenticated' && (
+          <span className="text-xs text-success flex-shrink-0">Connected</span>
+        )}
+        {backend.online && hasApiKey && authStatus === 'pending' && (
+          <span className="text-xs text-warning flex-shrink-0 animate-pulse">Connecting</span>
+        )}
+      </div>
+      <div className="text-xs text-muted-foreground truncate ml-4 mt-0.5">
+        {backend.backendId}
+      </div>
     </div>
   );
 }
@@ -533,18 +595,16 @@ function ServerItem({
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Calculate menu position when showing
   useEffect(() => {
     if (showMenu && menuButtonRef.current) {
       const rect = menuButtonRef.current.getBoundingClientRect();
       setMenuPosition({
-        top: rect.top - 8, // Position above the button
-        left: rect.right - 144 // 144px = w-36 (9rem)
+        top: rect.top - 8,
+        left: rect.right - 144
       });
     }
   }, [showMenu]);
 
-  // Get connection status color
   const getConnectionStatusColor = () => {
     switch (connection?.status) {
       case 'connected':
@@ -563,83 +623,71 @@ function ServerItem({
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer ${
+      className={`px-3 py-2 hover:bg-muted cursor-pointer ${
         isActive ? 'bg-muted' : ''
       }`}
     >
-      {/* Left side: server info (clickable) */}
-      <div className="flex-1 min-w-0" onClick={onSelect}>
-        <div className="flex items-center gap-2">
-          {/* Per-server connection status indicator */}
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${getConnectionStatusColor()}`} title={connection?.status || 'disconnected'} />
-          <span className="text-sm font-medium truncate">{server.name}</span>
-          {server.connectionMode === 'gateway' && (
-            <span className="text-muted-foreground flex-shrink-0" title="Via Gateway">
-              🌐
+      <div className="flex items-center gap-2" onClick={onSelect}>
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${getConnectionStatusColor()}`} title={connection?.status || 'disconnected'} />
+        <span className="text-sm font-medium truncate flex-1 min-w-0">{server.name}</span>
+        {server.isDefault && (
+          <span className="px-1.5 py-0.5 bg-primary/20 text-primary text-xs rounded flex-shrink-0">
+            Default
+          </span>
+        )}
+        {/* Connect/Disconnect button */}
+        {server.id === 'local' ? (
+          isConnected ? (
+            <span className="px-2 py-0.5 text-xs rounded flex-shrink-0 bg-success/20 text-success">
+              Connected
             </span>
-          )}
-          {server.requiresAuth && (
-            <span className="text-muted-foreground flex-shrink-0" title="Requires authentication">
-              🔐
+          ) : isConnecting ? (
+            <span className="px-2 py-0.5 text-xs rounded flex-shrink-0 bg-warning/20 text-warning animate-pulse">
+              Connecting
             </span>
-          )}
-        </div>
-        <div className="text-xs text-muted-foreground truncate ml-4">
-          {server.connectionMode === 'gateway' ? (
-            <>
-              {server.backendId}
-              <span className="ml-1 text-primary/70">via {(() => { try { return new URL(server.gatewayUrl || 'http://unknown').host; } catch { return server.gatewayUrl || 'unknown'; } })()}</span>
-            </>
           ) : (
-            <>
-              {server.address}
-              {server.clientId && (
-                <span className="ml-1 text-primary/70">({server.clientId})</span>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Right side: badges and buttons */}
-      {server.isDefault && (
-        <span className="px-1.5 py-0.5 bg-primary/20 text-primary text-xs rounded flex-shrink-0">
-          Default
-        </span>
-      )}
-
-      {/* Connect/Disconnect button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          if (isConnected) {
-            onDisconnect();
-          } else if (!isConnecting) {
-            onConnect();
-          }
-        }}
-        disabled={isConnecting}
-        className={`px-2 py-0.5 text-xs rounded flex-shrink-0 transition-colors ${
-          isConnected
-            ? 'bg-success/20 text-success hover:bg-success/30'
-            : isConnecting
-            ? 'bg-warning/20 text-warning cursor-wait'
-            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-        }`}
-        title={isConnected ? 'Disconnect from server' : isConnecting ? 'Connecting...' : 'Connect to server'}
-      >
-        {isConnected ? 'Disconnect' : isConnecting ? 'Connecting' : 'Connect'}
-      </button>
-
-      {/* Menu */}
-      <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onConnect();
+              }}
+              className="px-2 py-0.5 text-xs rounded flex-shrink-0 bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+              title="Connect to server"
+            >
+              Connect
+            </button>
+          )
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isConnected) {
+                onDisconnect();
+              } else if (!isConnecting) {
+                onConnect();
+              }
+            }}
+            disabled={isConnecting}
+            className={`px-2 py-0.5 text-xs rounded flex-shrink-0 transition-colors ${
+              isConnected
+                ? 'bg-success/20 text-success hover:bg-success/30'
+                : isConnecting
+                ? 'bg-warning/20 text-warning cursor-wait'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+            title={isConnected ? 'Disconnect from server' : isConnecting ? 'Connecting...' : 'Connect to server'}
+          >
+            {isConnected ? 'Disconnect' : isConnecting ? 'Connecting' : 'Connect'}
+          </button>
+        )}
+        {/* Menu */}
         <button
           ref={menuButtonRef}
           onClick={(e) => {
             e.stopPropagation();
             setShowMenu(!showMenu);
           }}
-          className="p-1 rounded hover:bg-secondary"
+          className="p-1 rounded hover:bg-secondary flex-shrink-0"
           data-testid="server-menu-btn"
         >
           <svg
@@ -656,58 +704,66 @@ function ServerItem({
             />
           </svg>
         </button>
+      </div>
 
-        {showMenu && createPortal(
-          <>
-            <div
-              className="fixed inset-0 z-[60]"
-              onClick={() => setShowMenu(false)}
-            />
-            <div
-              className="fixed w-36 bg-card border border-border rounded shadow-lg z-[60]"
-              style={{
-                top: menuPosition.top,
-                left: menuPosition.left,
-                transform: 'translateY(-100%)'
+      {/* Address details */}
+      <div className="text-xs text-muted-foreground truncate ml-4 mt-0.5" onClick={onSelect}>
+        {server.address}
+        {server.clientId && (
+          <span className="ml-1 text-primary/70">({server.clientId})</span>
+        )}
+      </div>
+
+      {showMenu && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[60]"
+            onClick={() => setShowMenu(false)}
+          />
+          <div
+            className="fixed w-36 bg-card border border-border rounded shadow-lg z-[60]"
+            style={{
+              top: menuPosition.top,
+              left: menuPosition.left,
+              transform: 'translateY(-100%)'
+            }}
+          >
+            <button
+              onClick={() => {
+                onEdit();
+                setShowMenu(false);
               }}
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted"
+              data-testid="edit-server-btn"
             >
+              Edit
+            </button>
+            {!server.isDefault && (
               <button
                 onClick={() => {
-                  onEdit();
+                  onSetDefault();
                   setShowMenu(false);
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted"
-                data-testid="edit-server-btn"
               >
-                Edit
+                Set as Default
               </button>
-              {!server.isDefault && (
-                <button
-                  onClick={() => {
-                    onSetDefault();
-                    setShowMenu(false);
-                  }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted"
-                >
-                  Set as Default
-                </button>
-              )}
-              {canDelete && (
-                <button
-                  onClick={() => {
-                    onDelete();
-                    setShowMenu(false);
-                  }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-muted"
-                >
-                  Delete
-                </button>
-              )}
-            </div>
-          </>,
-          document.body
-        )}
-      </div>
+            )}
+            {canDelete && server.id !== 'local' && (
+              <button
+                onClick={() => {
+                  onDelete();
+                  setShowMenu(false);
+                }}
+                className="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-muted"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 }

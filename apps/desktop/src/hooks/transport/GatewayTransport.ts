@@ -1,31 +1,39 @@
 /**
- * Gateway WebSocket Transport
+ * Gateway WebSocket Transport (Multi-Backend)
  *
- * Connects to a backend server through a Gateway.
- * Handles Gateway-specific protocol wrapping/unwrapping.
+ * Maintains a single WebSocket connection to a Gateway.
+ * Supports discovering and communicating with multiple backends
+ * through the Gateway's protocol.
  */
 
-import { BaseTransport, type TransportConfig } from './BaseTransport';
-import type { ClientMessage, ClientToGatewayMessage, GatewayToClientMessage } from '@my-claudia/shared';
+import type {
+  ClientMessage,
+  ServerMessage,
+  GatewayBackendInfo,
+  ClientToGatewayMessage,
+  GatewayToClientMessage
+} from '@my-claudia/shared';
 
-export interface GatewayTransportConfig extends TransportConfig {
-  backendId: string;
-  gatewaySecret?: string;
-  apiKey?: string;
+export interface GatewayTransportConfig {
+  url: string;
+  gatewaySecret: string;
+  onConnected: () => void;
+  onDisconnected: () => void;
+  onError: (error: Event | string) => void;
+  onBackendsUpdated: (backends: GatewayBackendInfo[]) => void;
+  onBackendAuthResult: (backendId: string, success: boolean, error?: string) => void;
+  onBackendMessage: (backendId: string, message: ServerMessage) => void;
+  onBackendDisconnected: (backendId: string) => void;
 }
 
-export class GatewayTransport extends BaseTransport {
-  private backendId: string;
-  private gatewaySecret?: string;
-  private apiKey?: string;
+export class GatewayTransport {
+  private ws: WebSocket | null = null;
+  private config: GatewayTransportConfig;
   private gatewayAuthenticated = false;
-  private backendAuthenticated = false;
+  private authenticatedBackends = new Set<string>();
 
   constructor(config: GatewayTransportConfig) {
-    super(config);
-    this.backendId = config.backendId;
-    this.gatewaySecret = config.gatewaySecret;
-    this.apiKey = config.apiKey;
+    this.config = config;
   }
 
   connect(): void {
@@ -33,69 +41,108 @@ export class GatewayTransport extends BaseTransport {
       this.ws.close();
     }
 
-    this.status = 'connecting';
     this.gatewayAuthenticated = false;
-    this.backendAuthenticated = false;
+    this.authenticatedBackends.clear();
 
     this.ws = new WebSocket(this.config.url);
-    this.setupGatewayWebSocket(this.ws);
+    this.setupWebSocket(this.ws);
+  }
+
+  disconnect(): void {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    this.gatewayAuthenticated = false;
+    this.authenticatedBackends.clear();
+  }
+
+  isConnected(): boolean {
+    return this.ws !== null &&
+      this.ws.readyState === WebSocket.OPEN &&
+      this.gatewayAuthenticated;
+  }
+
+  isBackendAuthenticated(backendId: string): boolean {
+    return this.authenticatedBackends.has(backendId);
   }
 
   /**
-   * Send a message through the Gateway
-   * Wraps the message in Gateway protocol
+   * Authenticate to a specific backend through the gateway
    */
-  send(message: ClientMessage): void {
+  authenticateBackend(backendId: string, apiKey: string): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.gatewayAuthenticated) {
+      console.error('[GatewayTransport] Cannot authenticate backend: not connected to gateway');
+      this.config.onBackendAuthResult(backendId, false, 'Not connected to gateway');
+      return;
+    }
+
+    const msg: ClientToGatewayMessage = {
+      type: 'connect_backend',
+      backendId,
+      apiKey
+    };
+    this.ws.send(JSON.stringify(msg));
+  }
+
+  /**
+   * Send a message to a specific backend through the gateway
+   */
+  sendToBackend(backendId: string, message: ClientMessage): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error('[GatewayTransport] Cannot send message: not connected');
+      console.error('[GatewayTransport] Cannot send: not connected');
       return;
     }
 
-    if (!this.gatewayAuthenticated || !this.backendAuthenticated) {
-      console.error('[GatewayTransport] Cannot send message: not authenticated');
+    if (!this.authenticatedBackends.has(backendId)) {
+      console.error('[GatewayTransport] Cannot send: not authenticated to backend', backendId);
       return;
     }
 
-    // Wrap message in Gateway protocol
-    const gatewayMessage: ClientToGatewayMessage = {
+    const msg: ClientToGatewayMessage = {
       type: 'send_to_backend',
-      backendId: this.backendId,
+      backendId,
       message
     };
-
-    this.ws.send(JSON.stringify(gatewayMessage));
+    this.ws.send(JSON.stringify(msg));
   }
 
   /**
-   * Setup Gateway-specific WebSocket handlers
+   * Request the list of available backends from the gateway
    */
-  private setupGatewayWebSocket(ws: WebSocket): void {
+  requestBackendsList(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.gatewayAuthenticated) {
+      return;
+    }
+
+    const msg: ClientToGatewayMessage = {
+      type: 'list_backends'
+    };
+    this.ws.send(JSON.stringify(msg));
+  }
+
+  private setupWebSocket(ws: WebSocket): void {
     ws.onopen = () => {
       console.log('[GatewayTransport] Connected to Gateway, authenticating...');
-      this.status = 'connected';
 
-      // Authenticate with Gateway using secret
-      if (this.gatewaySecret) {
-        const authMsg: ClientToGatewayMessage = {
-          type: 'gateway_auth',
-          gatewaySecret: this.gatewaySecret
-        };
-        ws.send(JSON.stringify(authMsg));
-      }
+      // Authenticate with Gateway
+      const authMsg: ClientToGatewayMessage = {
+        type: 'gateway_auth',
+        gatewaySecret: this.config.gatewaySecret
+      };
+      ws.send(JSON.stringify(authMsg));
     };
 
     ws.onclose = () => {
       console.log('[GatewayTransport] Disconnected from Gateway');
-      this.status = 'disconnected';
       this.ws = null;
       this.gatewayAuthenticated = false;
-      this.backendAuthenticated = false;
-      this.config.onClose();
+      this.authenticatedBackends.clear();
+      this.config.onDisconnected();
     };
 
     ws.onerror = (error) => {
       console.error('[GatewayTransport] WebSocket error:', error);
-      this.status = 'error';
       this.config.onError(error);
     };
 
@@ -104,91 +151,62 @@ export class GatewayTransport extends BaseTransport {
         const message: GatewayToClientMessage = JSON.parse(event.data);
         this.handleGatewayMessage(message);
       } catch (error) {
-        console.error('[GatewayTransport] Failed to parse Gateway message:', error);
+        console.error('[GatewayTransport] Failed to parse message:', error);
       }
     };
   }
 
-  /**
-   * Handle Gateway-specific messages
-   */
   private handleGatewayMessage(message: GatewayToClientMessage): void {
     switch (message.type) {
       case 'gateway_auth_result':
         if (message.success) {
           console.log('[GatewayTransport] Gateway authentication successful');
           this.gatewayAuthenticated = true;
-
-          // Now connect to backend
-          if (this.backendId && this.apiKey) {
-            const connectMsg: ClientToGatewayMessage = {
-              type: 'connect_backend',
-              backendId: this.backendId,
-              apiKey: this.apiKey
-            };
-            this.ws?.send(JSON.stringify(connectMsg));
-          }
+          this.config.onConnected();
+          // Auto-request backends list after auth
+          this.requestBackendsList();
         } else {
-          console.error('[GatewayTransport] Gateway authentication failed:', message.error);
-          this.config.onError(new Event('Gateway authentication failed'));
-        }
-        break;
-
-      case 'backend_auth_result':
-        if (message.success) {
-          console.log('[GatewayTransport] Backend connection successful');
-          this.backendAuthenticated = true;
-          // Notify that we're fully connected
-          this.config.onOpen();
-        } else {
-          console.error('[GatewayTransport] Backend connection failed:', message.error);
-          this.config.onError(new Event('Backend connection failed'));
-        }
-        break;
-
-      case 'backend_message':
-        // Unwrap the backend message and pass it to the handler
-        if (message.message) {
-          this.config.onMessage(message.message);
+          console.error('[GatewayTransport] Gateway auth failed:', message.error);
+          this.config.onError(message.error || 'Gateway authentication failed');
         }
         break;
 
       case 'backends_list':
-        // Gateway sent list of available backends
-        // This can be handled by the hook if needed
-        console.log('[GatewayTransport] Available backends:', message.backends);
+        console.log('[GatewayTransport] Backends discovered:', message.backends.length);
+        this.config.onBackendsUpdated(message.backends);
         break;
 
-      case 'gateway_error':
-        console.error('[GatewayTransport] Gateway error:', message.message);
-        this.config.onError(new Event(message.message));
+      case 'backend_auth_result':
+        if (message.success) {
+          console.log('[GatewayTransport] Backend authenticated:', message.backendId);
+          this.authenticatedBackends.add(message.backendId);
+        } else {
+          console.error('[GatewayTransport] Backend auth failed:', message.backendId, message.error);
+          this.authenticatedBackends.delete(message.backendId);
+        }
+        this.config.onBackendAuthResult(message.backendId, message.success, message.error);
+        break;
+
+      case 'backend_message':
+        // Unwrap and forward the backend message
+        if (message.message && message.backendId) {
+          this.config.onBackendMessage(message.backendId, message.message);
+        }
         break;
 
       case 'backend_disconnected':
         console.log('[GatewayTransport] Backend disconnected:', message.backendId);
-        this.backendAuthenticated = false;
+        this.authenticatedBackends.delete(message.backendId);
+        this.config.onBackendDisconnected(message.backendId);
+        break;
+
+      case 'gateway_error':
+        console.error('[GatewayTransport] Gateway error:', message.message);
+        this.config.onError(message.message);
         break;
 
       default:
-        console.warn('[GatewayTransport] Unknown Gateway message type:', (message as any).type);
-    }
-  }
-
-  /**
-   * Update backend connection (for switching backends)
-   */
-  setBackend(backendId: string, apiKey?: string): void {
-    this.backendId = backendId;
-    this.apiKey = apiKey;
-
-    if (this.gatewayAuthenticated && this.ws?.readyState === WebSocket.OPEN && apiKey) {
-      this.backendAuthenticated = false;
-      const connectMsg: ClientToGatewayMessage = {
-        type: 'connect_backend',
-        backendId,
-        apiKey
-      };
-      this.ws.send(JSON.stringify(connectMsg));
+        console.warn('[GatewayTransport] Unknown message type:', (message as any).type);
     }
   }
 }

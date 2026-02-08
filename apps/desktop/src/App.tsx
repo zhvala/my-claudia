@@ -56,12 +56,12 @@ function AppContent() {
     <div className="flex flex-col h-screen bg-background text-foreground">
       {/* Unified Header - spans full width */}
       <header
-        className="h-14 border-b border-border flex items-center px-4 bg-card flex-shrink-0"
-        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', marginTop: '28px' }}
+        className="h-14 border-b border-border flex items-center px-2 md:px-4 bg-card flex-shrink-0 md:mt-[28px]"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         data-tauri-drag-region
       >
         {/* Left section: Logo and app name */}
-        <div className="flex items-center gap-3 min-w-[200px]" data-tauri-drag-region>
+        <div className="flex items-center gap-2 md:gap-3 md:min-w-[200px]" data-tauri-drag-region>
           {/* Mobile hamburger menu */}
           {isMobile && (
             <button
@@ -75,8 +75,8 @@ function AppContent() {
             </button>
           )}
 
-          {/* Logo - with left padding for macOS traffic lights */}
-          <div className="flex items-center gap-2 pl-16" data-tauri-drag-region>
+          {/* Logo - with left padding for macOS traffic lights (desktop only) */}
+          <div className="flex items-center gap-2 md:pl-16" data-tauri-drag-region>
             <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
               <span className="text-base">🤖</span>
             </div>
@@ -105,7 +105,7 @@ function AppContent() {
         </div>
 
         {/* Center/Right section: Server selector */}
-        <div className="flex-1 flex items-center justify-start ml-4">
+        <div className="flex-1 flex items-center justify-start ml-2 md:ml-4">
           <ServerSelector />
         </div>
 

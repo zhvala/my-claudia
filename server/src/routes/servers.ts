@@ -10,7 +10,6 @@ export function createServerRoutes(db: Database.Database): Router {
     try {
       const servers = db.prepare(`
         SELECT id, name, address, connection_mode as connectionMode,
-               gateway_url as gatewayUrl, gateway_secret as gatewaySecret, backend_id as backendId,
                api_key as apiKey, client_id as clientId,
                is_default as isDefault, requires_auth as requiresAuth,
                created_at as createdAt, updated_at as updatedAt, last_connected as lastConnected
@@ -39,7 +38,6 @@ export function createServerRoutes(db: Database.Database): Router {
     try {
       const server = db.prepare(`
         SELECT id, name, address, connection_mode as connectionMode,
-               gateway_url as gatewayUrl, gateway_secret as gatewaySecret, backend_id as backendId,
                api_key as apiKey, client_id as clientId,
                is_default as isDefault, requires_auth as requiresAuth,
                created_at as createdAt, updated_at as updatedAt, last_connected as lastConnected
@@ -74,8 +72,7 @@ export function createServerRoutes(db: Database.Database): Router {
   // Create server
   router.post('/', (req: Request, res: Response) => {
     try {
-      const { name, address, connectionMode, gatewayUrl, gatewaySecret, backendId,
-              apiKey, clientId, isDefault, requiresAuth } = req.body;
+      const { name, address, apiKey, clientId, isDefault, requiresAuth } = req.body;
 
       if (!name || !address) {
         res.status(400).json({
@@ -96,18 +93,14 @@ export function createServerRoutes(db: Database.Database): Router {
       db.prepare(`
         INSERT INTO servers (
           id, name, address, connection_mode,
-          gateway_url, gateway_secret, backend_id,
           api_key, client_id, is_default, requires_auth,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         name,
         address,
-        connectionMode || 'direct',
-        gatewayUrl || null,
-        gatewaySecret || null,
-        backendId || null,
+        'direct',
         apiKey || null,
         clientId || null,
         isDefault ? 1 : 0,
@@ -120,10 +113,6 @@ export function createServerRoutes(db: Database.Database): Router {
         id,
         name,
         address,
-        connectionMode: connectionMode || 'direct',
-        gatewayUrl,
-        gatewaySecret,
-        backendId,
         apiKey,
         clientId,
         isDefault: isDefault || false,
@@ -144,8 +133,7 @@ export function createServerRoutes(db: Database.Database): Router {
   // Update server
   router.put('/:id', (req: Request, res: Response) => {
     try {
-      const { name, address, connectionMode, gatewayUrl, gatewaySecret, backendId,
-              apiKey, clientId, isDefault, requiresAuth, lastConnected } = req.body;
+      const { name, address, apiKey, clientId, isDefault, requiresAuth, lastConnected } = req.body;
       const now = Date.now();
 
       // If this server is set as default, unset other defaults
@@ -159,10 +147,6 @@ export function createServerRoutes(db: Database.Database): Router {
 
       if (name !== undefined) { updates.push('name = ?'); values.push(name); }
       if (address !== undefined) { updates.push('address = ?'); values.push(address); }
-      if (connectionMode !== undefined) { updates.push('connection_mode = ?'); values.push(connectionMode); }
-      if (gatewayUrl !== undefined) { updates.push('gateway_url = ?'); values.push(gatewayUrl || null); }
-      if (gatewaySecret !== undefined) { updates.push('gateway_secret = ?'); values.push(gatewaySecret || null); }
-      if (backendId !== undefined) { updates.push('backend_id = ?'); values.push(backendId || null); }
       if (apiKey !== undefined) { updates.push('api_key = ?'); values.push(apiKey || null); }
       if (clientId !== undefined) { updates.push('client_id = ?'); values.push(clientId || null); }
       if (isDefault !== undefined) { updates.push('is_default = ?'); values.push(isDefault ? 1 : 0); }

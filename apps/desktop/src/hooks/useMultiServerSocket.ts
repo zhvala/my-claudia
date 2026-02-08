@@ -2,8 +2,8 @@
  * Multi-Server WebSocket Hook
  *
  * Manages multiple simultaneous server connections.
- * Each server has its own transport and connection state.
- * Switching active server does NOT disconnect other servers.
+ * Direct servers use DirectTransport (one per server).
+ * Gateway backends are handled by useGatewayConnection (single shared transport).
  */
 
 import { useEffect, useRef, useCallback } from 'react';
@@ -13,9 +13,10 @@ import { useProjectStore } from '../stores/projectStore';
 import { useServerStore } from '../stores/serverStore';
 import { usePermissionStore } from '../stores/permissionStore';
 import { DirectTransport } from './transport/DirectTransport';
-import { GatewayTransport } from './transport/GatewayTransport';
 import type { Transport } from './transport/BaseTransport';
 import { getApiKeyInfo } from '../services/api';
+import { useGatewayConnection } from './useGatewayConnection';
+import { isGatewayTarget, parseBackendId } from '../stores/gatewayStore';
 
 const RECONNECT_INTERVAL = 3000;
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -27,9 +28,15 @@ interface ServerTransportState {
 }
 
 export function useMultiServerSocket() {
-  // Map of serverId -> transport state
+  // Map of serverId -> transport state (direct servers only)
   const transportsRef = useRef<Map<string, ServerTransportState>>(new Map());
   const selectedSessionIdRef = useRef<string | null>(null);
+  // Stable ref for connectServer — used by scheduleReconnect and auto-connect effect
+  // to avoid circular deps and infinite re-render loops
+  const connectServerRef = useRef<(serverId: string) => void>(() => {});
+
+  // Gateway connection (manages all gateway backends)
+  const gatewayConnection = useGatewayConnection();
 
   // Store hooks
   const {
@@ -64,7 +71,7 @@ export function useMultiServerSocket() {
   }, [selectedSessionId]);
 
   /**
-   * Create message handler for a specific server
+   * Create message handler for a specific direct server
    */
   const createMessageHandler = useCallback((serverId: string) => {
     return (rawMessage: ServerMessage | any) => {
@@ -110,11 +117,9 @@ export function useMultiServerSocket() {
           break;
 
         case 'pong':
-          // Heartbeat response
           break;
 
         case 'delta':
-          // Only handle if this is from the active server
           if (serverId === activeServerId && currentSessionId) {
             appendToLastMessage(currentSessionId, message.content);
           }
@@ -217,25 +222,17 @@ export function useMultiServerSocket() {
   ]);
 
   /**
-   * Create transport for a specific server
+   * Create DirectTransport for a server
    */
   const createTransportForServer = useCallback((server: BackendServer, messageHandler: (msg: ServerMessage) => void): Transport | null => {
-    console.log(`[Socket:${server.id}] Creating transport:`, {
-      mode: server.connectionMode || 'direct',
-      address: server.address
-    });
+    console.log(`[Socket:${server.id}] Creating direct transport for: ${server.address}`);
 
     const config = {
-      url: '', // Will be set below
+      url: '',
       onMessage: messageHandler,
       onOpen: () => {
         console.log(`[Socket:${server.id}] Transport connected`);
         setServerConnectionStatus(server.id, 'connected');
-
-        // Gateway connections are always remote
-        if (server.connectionMode === 'gateway') {
-          setServerLocalConnection(server.id, false);
-        }
 
         // Send authentication message
         const authMessage: ClientMessage = {
@@ -257,38 +254,21 @@ export function useMultiServerSocket() {
       }
     };
 
-    // Create appropriate transport based on connection mode
-    if (server.connectionMode === 'gateway' && server.gatewayUrl && server.backendId) {
-      const normalizedGatewayUrl = server.gatewayUrl.includes('://')
-        ? server.gatewayUrl.replace(/^http/, 'ws')
-        : `ws://${server.gatewayUrl}`;
+    const address = server.address.includes('://')
+      ? server.address.replace(/^http/, 'ws')
+      : `ws://${server.address}`;
 
-      const gatewayUrl = `${normalizedGatewayUrl}/ws`;
+    let wsUrl = `${address}/ws`;
 
-      return new GatewayTransport({
-        ...config,
-        url: gatewayUrl,
-        backendId: server.backendId,
-        gatewaySecret: server.gatewaySecret,
-        apiKey: server.apiKey
-      });
-    } else {
-      const address = server.address.includes('://')
-        ? server.address.replace(/^http/, 'ws')
-        : `ws://${server.address}`;
-
-      let wsUrl = `${address}/ws`;
-
-      if (server.clientId) {
-        wsUrl += `?clientId=${encodeURIComponent(server.clientId)}`;
-      }
-
-      return new DirectTransport({
-        ...config,
-        url: wsUrl
-      });
+    if (server.clientId) {
+      wsUrl += `?clientId=${encodeURIComponent(server.clientId)}`;
     }
-  }, [setServerConnectionStatus, setServerLocalConnection]);
+
+    return new DirectTransport({
+      ...config,
+      url: wsUrl
+    });
+  }, [setServerConnectionStatus]);
 
   /**
    * Schedule reconnection for a specific server
@@ -311,17 +291,32 @@ export function useMultiServerSocket() {
     console.log(`[Socket:${serverId}] Scheduling reconnect attempt ${state.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
 
     state.reconnectTimeout = window.setTimeout(() => {
-      connectServer(serverId);
+      connectServerRef.current(serverId);
     }, RECONNECT_INTERVAL);
   }, [setServerConnectionStatus]);
 
   /**
-   * Connect to a specific server (does NOT disconnect other servers)
+   * Connect to a specific server
+   * For gateway targets: delegates to gateway connection
+   * For direct servers: creates DirectTransport
    */
   const connectServer = useCallback((serverId: string) => {
+    // Gateway targets are handled by useGatewayConnection
+    if (isGatewayTarget(serverId)) {
+      const backendId = parseBackendId(serverId);
+      gatewayConnection.authenticateBackend(backendId);
+      return;
+    }
+
     const server = servers.find(s => s.id === serverId);
     if (!server) {
       console.error(`[Socket] Server not found: ${serverId}`);
+      return;
+    }
+
+    // Skip gateway-mode servers (legacy entries)
+    if (server.connectionMode === 'gateway') {
+      console.warn(`[Socket] Skipping legacy gateway server: ${serverId}`);
       return;
     }
 
@@ -355,12 +350,17 @@ export function useMultiServerSocket() {
       });
       transport.connect();
     }
-  }, [servers, createMessageHandler, createTransportForServer, setServerConnectionStatus]);
+  }, [servers, createMessageHandler, createTransportForServer, setServerConnectionStatus, gatewayConnection]);
 
   /**
-   * Disconnect from a specific server (does NOT affect other servers)
+   * Disconnect from a specific server
    */
   const disconnectServer = useCallback((serverId: string) => {
+    // Gateway targets: nothing to disconnect per-backend (gateway WS stays up)
+    if (isGatewayTarget(serverId)) {
+      return;
+    }
+
     const state = transportsRef.current.get(serverId);
     if (!state) return;
 
@@ -379,13 +379,20 @@ export function useMultiServerSocket() {
    * Send message to a specific server
    */
   const sendToServer = useCallback((serverId: string, message: ClientMessage) => {
+    // Gateway targets: route through gateway connection
+    if (isGatewayTarget(serverId)) {
+      const backendId = parseBackendId(serverId);
+      gatewayConnection.sendToBackend(backendId, message);
+      return;
+    }
+
     const state = transportsRef.current.get(serverId);
     if (!state?.transport.isConnected()) {
       console.error(`[Socket:${serverId}] Cannot send message: not connected`);
       return;
     }
     state.transport.send(message);
-  }, []);
+  }, [gatewayConnection]);
 
   /**
    * Send message to the active server
@@ -402,9 +409,15 @@ export function useMultiServerSocket() {
    * Check if a specific server is connected
    */
   const isServerConnected = useCallback((serverId: string) => {
+    // Gateway targets: check via gateway connection
+    if (isGatewayTarget(serverId)) {
+      const backendId = parseBackendId(serverId);
+      return gatewayConnection.isBackendAuthenticated(backendId);
+    }
+
     const state = transportsRef.current.get(serverId);
     return state?.transport.isConnected() || false;
-  }, []);
+  }, [gatewayConnection]);
 
   /**
    * Check if the active server is connected
@@ -423,15 +436,21 @@ export function useMultiServerSocket() {
       .map(([id]) => id);
   }, []);
 
-  // Auto-connect to active server when it changes (if not already connected)
+  // Keep connectServer ref in sync
   useEffect(() => {
-    if (activeServerId) {
+    connectServerRef.current = connectServer;
+  }, [connectServer]);
+
+  // Auto-connect to active server when it changes (direct servers only)
+  // Gateway targets are auto-connected by useGatewayConnection
+  useEffect(() => {
+    if (activeServerId && !isGatewayTarget(activeServerId)) {
       const state = transportsRef.current.get(activeServerId);
       if (!state || !state.transport.isConnected()) {
-        connectServer(activeServerId);
+        connectServerRef.current(activeServerId);
       }
     }
-  }, [activeServerId, connectServer]);
+  }, [activeServerId]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -446,7 +465,7 @@ export function useMultiServerSocket() {
     };
   }, []);
 
-  // Heartbeat for all connected servers
+  // Heartbeat for all connected direct servers
   useEffect(() => {
     const interval = setInterval(() => {
       transportsRef.current.forEach((state) => {

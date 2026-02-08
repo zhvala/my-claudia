@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { BackendServer } from '@my-claudia/shared';
+import { useGatewayStore, isGatewayTarget, parseBackendId } from './gatewayStore';
 
 // Per-server connection state
 export interface ServerConnection {
@@ -215,6 +216,23 @@ export const useServerStore = create<ServerState>()((set, get) => ({
 
   getActiveServer: () => {
     const state = get();
+    if (!state.activeServerId) return undefined;
+
+    // Gateway backend: build virtual BackendServer from gateway store
+    if (isGatewayTarget(state.activeServerId)) {
+      const backendId = parseBackendId(state.activeServerId);
+      const gwState = useGatewayStore.getState();
+      const backend = gwState.discoveredBackends.find(b => b.backendId === backendId);
+      if (!backend) return undefined;
+      return {
+        id: state.activeServerId,
+        name: backend.name,
+        address: gwState.gatewayUrl || '',
+        isDefault: false,
+        createdAt: 0
+      } as BackendServer;
+    }
+
     return state.servers.find((s) => s.id === state.activeServerId);
   },
 

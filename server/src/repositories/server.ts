@@ -35,10 +35,7 @@ export class ServerRepository extends BaseRepository<
       requiresAuth: row.requires_auth === 1,
       apiKey: row.api_key,
       clientId: row.client_id,
-      connectionMode: row.connection_mode,
-      gatewayUrl: row.gateway_url,
-      gatewaySecret: row.gateway_secret,
-      backendId: row.backend_id
+      connectionMode: row.connection_mode
     };
   }
 
@@ -53,19 +50,15 @@ export class ServerRepository extends BaseRepository<
       sql: `
         INSERT INTO servers (
           id, name, address, connection_mode,
-          gateway_url, gateway_secret, backend_id,
           api_key, client_id, is_default, requires_auth,
           created_at, updated_at, last_connected
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       params: [
         id,
         data.name,
         data.address,
         data.connectionMode || 'direct',
-        data.gatewayUrl || null,
-        data.gatewaySecret || null,
-        data.backendId || null,
         data.apiKey || null,
         data.clientId || null,
         data.isDefault ? 1 : 0,
@@ -96,18 +89,6 @@ export class ServerRepository extends BaseRepository<
     if (data.connectionMode !== undefined) {
       updates.push('connection_mode = ?');
       params.push(data.connectionMode);
-    }
-    if (data.gatewayUrl !== undefined) {
-      updates.push('gateway_url = ?');
-      params.push(data.gatewayUrl);
-    }
-    if (data.gatewaySecret !== undefined) {
-      updates.push('gateway_secret = ?');
-      params.push(data.gatewaySecret);
-    }
-    if (data.backendId !== undefined) {
-      updates.push('backend_id = ?');
-      params.push(data.backendId);
     }
     if (data.apiKey !== undefined) {
       updates.push('api_key = ?');
