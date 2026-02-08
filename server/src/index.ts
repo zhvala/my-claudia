@@ -7,7 +7,7 @@ import type { GatewayConfig } from './routes/gateway.js';
 
 const PORT = parseInt(process.env.PORT || '3100', 10);
 // Listen on 0.0.0.0 to allow connections from other devices on the network
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = process.env.SERVER_HOST || '0.0.0.0';
 
 // Gateway configuration from environment (legacy support)
 const GATEWAY_URL = process.env.GATEWAY_URL;

@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface StoredFile {
@@ -14,9 +13,12 @@ export interface StoredFile {
 class FileStore {
   private files = new Map<string, StoredFile>();
   private storageDir: string;
+  private totalSize = 0;
+  private maxTotalSize: number;
 
-  constructor(storageDir: string) {
+  constructor(storageDir: string, maxTotalSizeMB = 100) {
     this.storageDir = storageDir;
+    this.maxTotalSize = maxTotalSizeMB * 1024 * 1024;
     // Ensure storage directory exists
     if (!fs.existsSync(storageDir)) {
       fs.mkdirSync(storageDir, { recursive: true });
@@ -26,28 +28,45 @@ class FileStore {
   // Store file and return fileId
   storeFile(name: string, mimeType: string, data: string): string {
     const fileId = uuidv4();
+    const fileSize = Buffer.from(data, 'base64').length;
+
+    // Evict oldest files if adding this one would exceed the limit
+    while (this.totalSize + fileSize > this.maxTotalSize && this.files.size > 0) {
+      const oldest = this.findOldestFile();
+      if (oldest) {
+        console.log(`[FileStore] Evicting ${oldest.id} (${oldest.name}) to free space`);
+        this.totalSize -= oldest.size;
+        this.files.delete(oldest.id);
+      } else {
+        break;
+      }
+    }
+
     const file: StoredFile = {
       id: fileId,
       name,
       mimeType,
-      size: Buffer.from(data, 'base64').length,
+      size: fileSize,
       data,
       createdAt: Date.now()
     };
 
     this.files.set(fileId, file);
+    this.totalSize += fileSize;
 
-    // Optionally persist to disk for large files
-    // Uncomment below to enable disk persistence
-    // try {
-    //   fs.writeFileSync(path.join(this.storageDir, fileId), data);
-    // } catch (error) {
-    //   console.error('[FileStore] Failed to persist file to disk:', error);
-    // }
-
-    console.log(`[FileStore] Stored file ${fileId} (${name}, ${file.size} bytes)`);
+    console.log(`[FileStore] Stored file ${fileId} (${name}, ${file.size} bytes, total: ${(this.totalSize / 1024 / 1024).toFixed(1)}MB)`);
 
     return fileId;
+  }
+
+  private findOldestFile(): StoredFile | null {
+    let oldest: StoredFile | null = null;
+    for (const file of this.files.values()) {
+      if (!oldest || file.createdAt < oldest.createdAt) {
+        oldest = file;
+      }
+    }
+    return oldest;
   }
 
   // Retrieve file by ID
@@ -78,24 +97,13 @@ class FileStore {
 
   // Delete file by ID
   deleteFile(fileId: string): boolean {
-    const deleted = this.files.delete(fileId);
+    const file = this.files.get(fileId);
+    if (!file) return false;
 
-    // Remove from disk if disk persistence is enabled
-    // Uncomment below if disk persistence is enabled
-    // try {
-    //   const filePath = path.join(this.storageDir, fileId);
-    //   if (fs.existsSync(filePath)) {
-    //     fs.unlinkSync(filePath);
-    //   }
-    // } catch (error) {
-    //   console.error('[FileStore] Failed to delete file from disk:', error);
-    // }
-
-    if (deleted) {
-      console.log(`[FileStore] Deleted file ${fileId}`);
-    }
-
-    return deleted;
+    this.totalSize -= file.size;
+    this.files.delete(fileId);
+    console.log(`[FileStore] Deleted file ${fileId}`);
+    return true;
   }
 
   // Cleanup old files (> 24 hours)
@@ -118,17 +126,11 @@ class FileStore {
 
   // Get statistics
   getStats() {
-    const count = this.files.size;
-    let totalSize = 0;
-
-    for (const file of this.files.values()) {
-      totalSize += file.size;
-    }
-
     return {
-      count,
-      totalSize,
-      totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2)
+      count: this.files.size,
+      totalSize: this.totalSize,
+      totalSizeMB: (this.totalSize / (1024 * 1024)).toFixed(2),
+      maxSizeMB: (this.maxTotalSize / (1024 * 1024)).toFixed(0)
     };
   }
 }
@@ -143,4 +145,4 @@ setInterval(() => {
 
 // Log stats on startup
 const stats = fileStore.getStats();
-console.log(`[FileStore] Initialized: ${stats.count} files, ${stats.totalSizeMB} MB`);
+console.log(`[FileStore] Initialized: ${stats.count} files, ${stats.totalSizeMB}/${stats.maxSizeMB} MB`);

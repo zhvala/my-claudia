@@ -90,6 +90,8 @@ export class GatewayClient {
 
   // Track authenticated clients (client auth is verified by backend)
   private authenticatedClients = new Set<string>();
+  // Flag to prevent reconnection after intentional disconnect
+  private intentionalDisconnect = false;
 
   constructor(config: GatewayClientConfig) {
     this.config = config;
@@ -121,7 +123,9 @@ export class GatewayClient {
    * Connect to the Gateway
    */
   connect(): void {
+    this.intentionalDisconnect = false;
     if (this.ws) {
+      this.ws.removeAllListeners();
       this.ws.close();
     }
 
@@ -183,11 +187,13 @@ export class GatewayClient {
    * Disconnect from the Gateway
    */
   disconnect(): void {
+    this.intentionalDisconnect = true;
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
     if (this.ws) {
+      this.ws.removeAllListeners();
       this.ws.close();
       this.ws = null;
     }
@@ -386,6 +392,10 @@ export class GatewayClient {
   }
 
   private scheduleReconnect(): void {
+    if (this.intentionalDisconnect) {
+      console.log('[Gateway] Skipping reconnect (intentional disconnect)');
+      return;
+    }
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log('[Gateway] Max reconnect attempts reached');
       return;

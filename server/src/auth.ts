@@ -122,7 +122,15 @@ export function getFullApiKey(): string {
  */
 export function validateApiKey(key: string): boolean {
   const storedKey = getFullApiKey();
-  return key === storedKey;
+  if (typeof key !== 'string' || typeof storedKey !== 'string') return false;
+  const bufA = Buffer.from(key);
+  const bufB = Buffer.from(storedKey);
+  if (bufA.length !== bufB.length) {
+    // Compare against self to maintain constant time even on length mismatch
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 /**

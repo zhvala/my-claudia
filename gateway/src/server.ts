@@ -1,6 +1,7 @@
-import { createServer as createHttpServer, Server } from 'http';
+import { createServer as createHttpServer, IncomingMessage, Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import express, { Request, Response } from 'express';
 import multer from 'multer';
 import type {
@@ -44,6 +45,19 @@ interface ConnectedClient {
   backendAuths: Set<string>;  // backendIds this client is authenticated to
 }
 
+/** Timing-safe string comparison to prevent timing attacks */
+function safeCompare(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Compare against self to maintain constant time even on length mismatch
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 export function createGatewayServer(config: GatewayConfig): Server {
   const storage = new GatewayStorage();
   const backends = new Map<string, ConnectedBackend>();  // backendId -> backend
@@ -56,9 +70,49 @@ export function createGatewayServer(config: GatewayConfig): Server {
     timeout: NodeJS.Timeout;
   }>();
 
+  // Rate limiting: IP -> { attempts, resetAt }
+  const authAttempts = new Map<string, { count: number; resetAt: number }>();
+  const AUTH_RATE_LIMIT = 10;       // max attempts per window
+  const AUTH_RATE_WINDOW = 60_000;  // 1 minute
+
+  function checkRateLimit(ip: string): boolean {
+    const now = Date.now();
+    const entry = authAttempts.get(ip);
+    if (!entry || now > entry.resetAt) {
+      authAttempts.set(ip, { count: 1, resetAt: now + AUTH_RATE_WINDOW });
+      return true;
+    }
+    entry.count++;
+    return entry.count <= AUTH_RATE_LIMIT;
+  }
+
+  // Cleanup stale rate limit entries every 5 minutes
+  const rateLimitCleanup = setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of authAttempts) {
+      if (now > entry.resetAt) authAttempts.delete(ip);
+    }
+  }, 5 * 60_000);
+
   // Create Express app
   const app = express();
-  app.use(express.json());
+  app.disable('x-powered-by');
+
+  // CORS — allow desktop/web clients from any origin.
+  // Real security is enforced by gateway secret + per-backend API key, not origin.
+  app.use((req: Request, res: Response, next: () => void) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
+  app.use(express.json({ limit: '1mb' }));
 
   // Configure multer for file upload
   const upload = multer({
@@ -73,8 +127,27 @@ export function createGatewayServer(config: GatewayConfig): Server {
     res.json({ status: 'ok', backends: backends.size, clients: clients.size });
   });
 
-  // POST /api/files/upload - Upload a file
-  app.post('/api/files/upload', upload.single('file'), (req: Request, res: Response) => {
+  /** Middleware: validate gateway secret from Authorization header.
+   *  Accepts both "Bearer gatewaySecret" and "Bearer clientId:gatewaySecret" formats. */
+  function requireGatewayAuth(req: Request, res: Response, next: () => void): void {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authorization required' } });
+      return;
+    }
+    const token = authHeader.slice(7);
+    // Support "clientId:gatewaySecret" format (desktop app sends this in gateway mode)
+    const colonIndex = token.indexOf(':');
+    const secret = colonIndex !== -1 ? token.slice(colonIndex + 1) : token;
+    if (!safeCompare(secret, config.gatewaySecret)) {
+      res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } });
+      return;
+    }
+    next();
+  }
+
+  // POST /api/files/upload - Upload a file (requires gateway secret)
+  app.post('/api/files/upload', requireGatewayAuth, upload.single('file'), (req: Request, res: Response) => {
     try {
       if (!req.file) {
         res.status(400).json({
@@ -112,8 +185,8 @@ export function createGatewayServer(config: GatewayConfig): Server {
     }
   });
 
-  // GET /api/files/:fileId - Download a file
-  app.get('/api/files/:fileId', (req: Request, res: Response) => {
+  // GET /api/files/:fileId - Download a file (requires gateway secret)
+  app.get('/api/files/:fileId', requireGatewayAuth, (req: Request, res: Response) => {
     try {
       const { fileId } = req.params;
 
@@ -149,6 +222,16 @@ export function createGatewayServer(config: GatewayConfig): Server {
   app.all('/api/proxy/:backendId/*', async (req: Request, res: Response) => {
     try {
       const { backendId } = req.params;
+      const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+
+      // Rate limit check
+      if (!checkRateLimit(clientIp)) {
+        res.status(429).json({
+          success: false,
+          error: { code: 'RATE_LIMITED', message: 'Too many requests, try again later' }
+        });
+        return;
+      }
 
       // Parse authorization header: Bearer gatewaySecret:apiKey
       const authHeader = req.headers.authorization;
@@ -165,7 +248,7 @@ export function createGatewayServer(config: GatewayConfig): Server {
       if (colonIndex === -1) {
         res.status(401).json({
           success: false,
-          error: { code: 'UNAUTHORIZED', message: 'Invalid authorization format. Expected: Bearer gatewaySecret:apiKey' }
+          error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' }
         });
         return;
       }
@@ -173,11 +256,11 @@ export function createGatewayServer(config: GatewayConfig): Server {
       const gatewaySecret = token.slice(0, colonIndex);
       const apiKey = token.slice(colonIndex + 1);
 
-      // Validate gateway secret
-      if (gatewaySecret !== config.gatewaySecret) {
+      // Validate gateway secret (timing-safe)
+      if (!safeCompare(gatewaySecret, config.gatewaySecret)) {
         res.status(401).json({
           success: false,
-          error: { code: 'UNAUTHORIZED', message: 'Invalid gateway secret' }
+          error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' }
         });
         return;
       }
@@ -261,10 +344,29 @@ export function createGatewayServer(config: GatewayConfig): Server {
     }
   });
 
+  // Catch-all 404 handler
+  app.use((_req: Request, res: Response) => {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Not found' } });
+  });
+
+  // Global error handler — prevents stack trace leakage
+  app.use((err: Error, _req: Request, res: Response, _next: () => void) => {
+    console.error('[Gateway] Unhandled error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
+  });
+
+  // Per-IP WebSocket connection tracking
+  const wsConnectionsPerIp = new Map<string, number>();
+  const MAX_WS_CONNECTIONS_PER_IP = 10;
+
   // Create HTTP server from Express app
   const httpServer = createHttpServer(app);
 
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  const wss = new WebSocketServer({
+    server: httpServer,
+    path: '/ws',
+    maxPayload: 1 * 1024 * 1024 // 1MB max WebSocket message size
+  });
 
   // Ping interval for connection health
   const pingInterval = setInterval(() => {
@@ -290,11 +392,28 @@ export function createGatewayServer(config: GatewayConfig): Server {
     });
   }, 30000);
 
-  wss.on('connection', (ws: WebSocket) => {
+  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+    // Per-IP connection limit
+    const ip = req.headers['x-forwarded-for']?.toString().split(',')[0].trim()
+      || req.socket.remoteAddress || 'unknown';
+    const currentCount = wsConnectionsPerIp.get(ip) || 0;
+    if (currentCount >= MAX_WS_CONNECTIONS_PER_IP) {
+      ws.close(1008, 'Too many connections');
+      return;
+    }
+    wsConnectionsPerIp.set(ip, currentCount + 1);
+
     // We don't know yet if this is a backend or client
     // Wait for the first message to determine
     let connectionType: 'backend' | 'client' | null = null;
     let connectionId: string | null = null;
+
+    // Close unauthenticated connections after 10 seconds
+    const authTimeout = setTimeout(() => {
+      if (!connectionType) {
+        ws.close(1008, 'Authentication timeout');
+      }
+    }, 10_000);
 
     ws.on('pong', () => {
       if (connectionType === 'backend' && connectionId) {
@@ -312,6 +431,7 @@ export function createGatewayServer(config: GatewayConfig): Server {
 
         // First message determines connection type
         if (!connectionType) {
+          clearTimeout(authTimeout);
           if (message.type === 'register') {
             // This is a backend
             connectionType = 'backend';
@@ -343,12 +463,21 @@ export function createGatewayServer(config: GatewayConfig): Server {
         sendToWs(ws, {
           type: 'gateway_error',
           code: 'INVALID_MESSAGE',
-          message: error instanceof Error ? error.message : 'Invalid message format'
+          message: 'Invalid message format'
         });
       }
     });
 
     ws.on('close', () => {
+      clearTimeout(authTimeout);
+      // Decrement per-IP connection count
+      const count = wsConnectionsPerIp.get(ip) || 1;
+      if (count <= 1) {
+        wsConnectionsPerIp.delete(ip);
+      } else {
+        wsConnectionsPerIp.set(ip, count - 1);
+      }
+
       if (connectionType === 'backend' && connectionId) {
         handleBackendDisconnect(connectionId);
       } else if (connectionType === 'client' && connectionId) {
@@ -363,14 +492,15 @@ export function createGatewayServer(config: GatewayConfig): Server {
 
   wss.on('close', () => {
     clearInterval(pingInterval);
+    clearInterval(rateLimitCleanup);
     storage.close();
   });
 
   // --- Backend handlers ---
 
   function handleBackendRegister(ws: WebSocket, message: GatewayRegisterMessage): string | null {
-    // Validate gateway secret
-    if (message.gatewaySecret !== config.gatewaySecret) {
+    // Validate gateway secret (timing-safe)
+    if (!safeCompare(message.gatewaySecret, config.gatewaySecret)) {
       sendToWs(ws, {
         type: 'register_result',
         success: false,
@@ -492,12 +622,12 @@ export function createGatewayServer(config: GatewayConfig): Server {
   function handleClientAuth(ws: WebSocket, message: GatewayAuthMessage): string | null {
     const clientId = uuidv4();
 
-    // Validate gateway secret
-    if (message.gatewaySecret !== config.gatewaySecret) {
+    // Validate gateway secret (timing-safe)
+    if (!safeCompare(message.gatewaySecret, config.gatewaySecret)) {
       sendToWs(ws, {
         type: 'gateway_auth_result',
         success: false,
-        error: 'Invalid gateway secret'
+        error: 'Invalid credentials'
       });
       ws.close();
       return null;
@@ -612,7 +742,7 @@ export function createGatewayServer(config: GatewayConfig): Server {
         sendToWs(client.ws, {
           type: 'gateway_error',
           code: 'UNKNOWN_MESSAGE_TYPE',
-          message: `Unknown message type: ${msg.type}`
+          message: 'Unknown message type'
         });
     }
   }
