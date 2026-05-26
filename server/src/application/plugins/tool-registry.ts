@@ -8,7 +8,7 @@ export type ToolHandler = (
 
 export type ToolSource = 'builtin' | 'plugin' | 'interaction' | 'skill';
 
-export type ToolScope = 'agent-assistant' | 'main-session' | 'command-palette';
+export type ToolScope = 'agent-assistant' | 'main-session' | 'command-palette' | 'plugin-panel';
 
 export interface ToolMeta {
   id: string;
@@ -69,8 +69,10 @@ export class ToolRegistry {
   }
 
   getDefinitionsByScope(scope: ToolScope): ToolDefinition[] {
+    // Undefined or empty scope is treated as "callable from any caller scope"
+    // (back-compat). Matches the symmetric guard in execute() below.
     return Array.from(this.tools.values())
-      .filter((tool) => !tool.scope || tool.scope.includes(scope))
+      .filter((tool) => !tool.scope || tool.scope.length === 0 || tool.scope.includes(scope))
       .map((tool) => tool.definition);
   }
 
