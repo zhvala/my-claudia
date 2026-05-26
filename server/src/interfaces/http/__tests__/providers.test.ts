@@ -6,6 +6,7 @@ import { createProviderRoutes } from '../../../domains/providers/index.js';
 
 // Mock child_process for CLI model fetching
 const mockExecFile = vi.fn();
+type ExecFileTestCallback = (error: Error | null, result?: { stdout: string; stderr: string }) => void;
 vi.mock('child_process', async (importOriginal) => {
   const orig = await importOriginal<typeof import('child_process')>();
   return {
@@ -273,6 +274,24 @@ describe('providers routes', () => {
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
       expect(res.body.data.type).toBe('kimi');
+    });
+
+    it('accepts openclaude as provider type', async () => {
+      const res = await request(app)
+        .post('/api/providers')
+        .send({
+          name: 'OpenClaude Provider',
+          type: 'openclaude',
+          env: {
+            CLAUDE_CODE_USE_OPENAI: '1',
+            OPENAI_MODEL: 'gpt-4o',
+          },
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.type).toBe('openclaude');
+      expect(res.body.data.env.OPENAI_MODEL).toBe('gpt-4o');
     });
   });
 
@@ -574,6 +593,16 @@ describe('providers routes', () => {
       expect(res.body.data.modeLabel).toBe('Mode');
       expect(res.body.data.modes.some((m: any) => m.id === 'default')).toBe(true);
     });
+
+    it('returns openclaude capabilities with OpenAI-compatible model defaults', async () => {
+      const res = await request(app).get('/api/providers/type/openclaude/capabilities');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.modeLabel).toBe('Mode');
+      expect(res.body.data.defaultModeId).toBe('default');
+      expect(res.body.data.models.some((m: any) => m.id === 'gpt-4o')).toBe(true);
+      expect(res.body.data.supportsAIReview).toBe(true);
+    });
   });
 
   describe('POST /api/providers with cliPath', () => {
@@ -830,7 +859,7 @@ describe('providers routes', () => {
 
   describe('POST /api/providers - additional validation', () => {
     it('creates provider with all supported types', async () => {
-      for (const type of ['claude', 'opencode', 'codex', 'cursor', 'kimi']) {
+      for (const type of ['claude', 'openclaude', 'opencode', 'codex', 'cursor', 'kimi']) {
         const res = await request(app)
           .post('/api/providers')
           .send({ name: `Provider ${type}`, type });
@@ -1086,7 +1115,7 @@ describe('providers routes', () => {
   describe('GET /api/providers - providers with various field combinations', () => {
     it('returns providers with different types in listing', async () => {
       const now = Date.now();
-      const types = ['claude', 'opencode', 'codex', 'cursor', 'kimi'];
+      const types = ['claude', 'openclaude', 'opencode', 'codex', 'cursor', 'kimi'];
       for (let i = 0; i < types.length; i++) {
         db.prepare(`
           INSERT INTO providers (id, name, type, created_at, updated_at)
@@ -1096,7 +1125,7 @@ describe('providers routes', () => {
 
       const res = await request(app).get('/api/providers');
       expect(res.status).toBe(200);
-      expect(res.body.data).toHaveLength(5);
+      expect(res.body.data).toHaveLength(6);
 
       const returnedTypes = res.body.data.map((p: any) => p.type);
       for (const t of types) {
@@ -1350,7 +1379,7 @@ describe('providers routes', () => {
       mockExistsSync.mockReturnValue(false);
 
       // Mock execFile to return model-like output
-      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: Function) => {
+      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: ExecFileTestCallback) => {
         cb(null, { stdout: 'gpt-5.3-codex gpt-5.2-codex', stderr: '' });
       });
 
@@ -1398,7 +1427,7 @@ describe('providers routes', () => {
 
   describe('Cursor capabilities - model fetching via CLI', () => {
     it('uses fallback when CLI output has no model-like tokens', async () => {
-      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: Function) => {
+      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: ExecFileTestCallback) => {
         cb(null, { stdout: 'usage: cursor-agent [options]', stderr: '' });
       });
 
@@ -1409,7 +1438,7 @@ describe('providers routes', () => {
     });
 
     it('parses model IDs from CLI JSON output', async () => {
-      mockExecFile.mockImplementation((_binary: string, args: string[], _opts: any, cb: Function) => {
+      mockExecFile.mockImplementation((_binary: string, args: string[], _opts: any, cb: ExecFileTestCallback) => {
         if (args.includes('--json')) {
           cb(null, {
             stdout: JSON.stringify([
@@ -1433,7 +1462,7 @@ describe('providers routes', () => {
     });
 
     it('parses model IDs from CLI text output when JSON fails', async () => {
-      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: Function) => {
+      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: ExecFileTestCallback) => {
         cb(null, {
           stdout: 'Available models: gpt-5, claude-opus-4-6, o3',
           stderr: '',
@@ -1448,7 +1477,7 @@ describe('providers routes', () => {
     });
 
     it('handles CLI binary not found (error with stdout/stderr)', async () => {
-      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: Function) => {
+      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: ExecFileTestCallback) => {
         const err = new Error('ENOENT') as any;
         err.stdout = '';
         err.stderr = '';
@@ -1465,7 +1494,7 @@ describe('providers routes', () => {
   describe('Codex capabilities - CLI model parsing paths', () => {
     it('parses credible JSON model set from CLI output', async () => {
       mockExistsSync.mockReturnValue(false);
-      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: Function) => {
+      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: ExecFileTestCallback) => {
         cb(null, {
           stdout: JSON.stringify({
             models: [
@@ -1486,7 +1515,7 @@ describe('providers routes', () => {
 
     it('parses credible text model set from CLI output', async () => {
       mockExistsSync.mockReturnValue(false);
-      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: Function) => {
+      mockExecFile.mockImplementation((_binary: string, _args: string[], _opts: any, cb: ExecFileTestCallback) => {
         cb(null, {
           stdout: 'Models: gpt-5.3-codex, gpt-5.2-codex, gpt-5.1-codex-max',
           stderr: '',
